@@ -1,43 +1,48 @@
 "use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import React from 'react';
+import { usePathname } from 'next/navigation';
+import Navbar from '../../components/layout/Navbar';
+import Sidebar from '../../components/layout/Sidebar';
 import { useUserContext } from '../../lib/hooks/UserContext';
-
-// Dynamically import MainLayout with no SSR to prevent hydration issues
-const MainLayout = dynamic(() => import('../../components/layout/MainLayout'), { ssr: false });
+import { 
+  LayoutDashboard, 
+  Dumbbell, 
+  Apple, 
+  Target, 
+  UserCircle,
+  ArrowRight 
+} from 'lucide-react';
 
 export default function AppLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
-  const { isAuthenticated, isLoading } = useUserContext();
-  const router = useRouter();
-
-  useEffect(() => {
-    // Redirect to login if not authenticated and not loading
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  // Don't render protected content if not authenticated
-  if (!isAuthenticated) {
-    return null;
-  }
-
+}>) {
+  const pathname = usePathname();
+  const { user } = useUserContext();
+  
+  const navigationItems = [
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Workouts", href: "/workouts", icon: Dumbbell },
+    { name: "Nutrition", href: "/nutrition", icon: Apple },
+    { name: "Goals", href: "/goals", icon: Target },
+    { name: "Profile", href: "/profile", icon: UserCircle },
+    ...(!user?.stats.bodyFatPercentage ? [{ name: "Complete Setup", href: "/onboarding", icon: ArrowRight }] : []),
+  ];
+  
   return (
-    <MainLayout>{children}</MainLayout>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <Navbar />
+      <div className="flex pt-16">
+        <Sidebar navigationItems={navigationItems} />
+        <div className="lg:pl-64 flex flex-col flex-1">
+          <main className="flex-1 p-5 md:p-8 max-w-7xl mx-auto w-full">
+            {children}
+          </main>
+        </div>
+      </div>
+    </div>
   );
 } 

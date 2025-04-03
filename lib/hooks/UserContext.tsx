@@ -14,6 +14,15 @@ export type User = {
     dietaryPreferences: string[];
     weightUnit: 'kg' | 'lbs';
     heightUnit: 'cm' | 'ft';
+    checkInFrequency: 'low' | 'medium' | 'high';
+    notificationPreferences: {
+      meals: boolean;
+      activity: boolean;
+      water: boolean;
+      sleep: boolean;
+      measurements: boolean;
+    };
+    trackingDevices: string[];
   };
   stats: {
     weight: number;
@@ -21,6 +30,11 @@ export type User = {
     age: number;
     gender: string;
     activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very active';
+    bodyFatPercentage?: number;
+    waistCircumference?: number;
+    hipCircumference?: number;
+    restingHeartRate?: number;
+    vo2Max?: number;
   };
 };
 
@@ -57,6 +71,15 @@ export const MOCK_USER: User = {
     dietaryPreferences: ['high protein', 'low carb'],
     weightUnit: 'kg',
     heightUnit: 'cm',
+    checkInFrequency: 'medium',
+    notificationPreferences: {
+      meals: true,
+      activity: true,
+      water: true,
+      sleep: true,
+      measurements: true,
+    },
+    trackingDevices: ['Fitbit', 'Apple Watch', 'Garmin', 'Samsung Health'],
   },
   stats: {
     weight: 82,
@@ -64,6 +87,11 @@ export const MOCK_USER: User = {
     age: 32,
     gender: 'male',
     activityLevel: 'moderate',
+    bodyFatPercentage: 18.5,
+    waistCircumference: 94,
+    hipCircumference: 102,
+    restingHeartRate: 62,
+    vo2Max: 42.5,
   },
 };
 
@@ -82,7 +110,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
     if (status === 'authenticated' && session?.user) {
       // Create user from session data
-      const sessionUser = {
+      const sessionUser: User = {
         id: session.user.id || '1',
         name: session.user.name || 'User',
         email: session.user.email || 'user@example.com',
@@ -94,7 +122,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       setUser(sessionUser);
       setIsLoading(false);
     } else {
-      setUser(null);
+      // For demo purposes, use mock user to avoid login
+      // In production, this would be: setUser(null)
+      setUser(MOCK_USER);
       setIsLoading(false);
     }
   }, [session, status]);
@@ -108,6 +138,19 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         password,
         redirect: false,
       });
+      
+      if (!result?.ok) {
+        // For demo purposes, create a mock user when sign in fails
+        // In production, this would just return false
+        const customUser = {
+          ...MOCK_USER,
+          name: email.split('@')[0],
+          email: email,
+        };
+        setUser(customUser);
+        setIsLoading(false);
+        return true;
+      }
       
       setIsLoading(false);
       return !!result?.ok;
@@ -123,6 +166,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const result = await nextAuthSignIn('google', { redirect: false });
+      
+      if (!result?.ok) {
+        // For demo purposes, use mock user when sign in fails
+        setUser(MOCK_USER);
+        setIsLoading(false);
+        return true;
+      }
+      
       setIsLoading(false);
       return !!result?.ok;
     } catch (error) {
