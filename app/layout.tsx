@@ -1,17 +1,13 @@
+import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "./globals.css";
-import { UserContextProvider } from "../lib/hooks/UserContext";
+import Providers from "./providers";
 
-const inter = Inter({
-  subsets: ["latin"],
-  display: 'swap',
-  variable: '--font-inter',
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "FitCoach - Your Personal Fitness Companion",
-  description: "Track your workouts, meals, and health data with personalized motivation",
+  title: "FitCoach - Your AI Fitness Companion",
+  description: "Track your fitness journey and get personalized recommendations with FitCoach.",
 };
 
 export default function RootLayout({
@@ -21,12 +17,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.variable} antialiased bg-gray-50 dark:bg-gray-900`}
-      >
-        <UserContextProvider>
-          {children}
-        </UserContextProvider>
+      <body className={inter.className}>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
 
 // Define user type
-type User = {
+export type User = {
   id: string;
   name: string;
   email: string;
@@ -29,6 +30,7 @@ type UserContextType = {
   setUser: (user: User | null) => void;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<boolean>;
+  signInWithGoogle: () => Promise<boolean>;
   signOut: () => void;
   isAuthenticated: boolean;
 };
@@ -39,12 +41,13 @@ const UserContext = createContext<UserContextType>({
   setUser: () => {},
   isLoading: true,
   signIn: async () => false,
+  signInWithGoogle: async () => false,
   signOut: () => {},
   isAuthenticated: false,
 });
 
 // Sample user data
-const MOCK_USER: User = {
+export const MOCK_USER: User = {
   id: '1',
   name: 'John Doe',
   email: 'john@example.com',
@@ -68,47 +71,46 @@ const MOCK_USER: User = {
 export function UserContextProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { data: session, status } = useSession();
 
-  // Load user data on mount (simulated auth check)
+  // Load user data from session when available
   useEffect(() => {
-    // In a real app, this would check for an auth token and fetch user data from an API
-    const checkAuth = async () => {
-      try {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Start with no authenticated user to force login
-        setUser(null);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Authentication error:', error);
-        setUser(null);
-        setIsLoading(false);
-      }
-    };
+    if (status === 'loading') {
+      setIsLoading(true);
+      return;
+    }
 
-    checkAuth();
-  }, []);
+    if (status === 'authenticated' && session?.user) {
+      // Create user from session data
+      const sessionUser = {
+        id: session.user.id || '1',
+        name: session.user.name || 'User',
+        email: session.user.email || 'user@example.com',
+        // Use preferences from session if available or fallback to mock data
+        preferences: (session.user.preferences as User['preferences']) || MOCK_USER.preferences,
+        stats: (session.user.stats as User['stats']) || MOCK_USER.stats,
+      };
+      
+      setUser(sessionUser);
+      setIsLoading(false);
+    } else {
+      setUser(null);
+      setIsLoading(false);
+    }
+  }, [session, status]);
 
   // Sign in function
   const signIn = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Simulate authentication delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await nextAuthSignIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
       
-      // Accept any email/password combination
-      // Create a user with the email from input
-      const newUser = {
-        ...MOCK_USER,
-        email: email,
-        name: email.split('@')[0] // Use part before @ as name
-      };
-      
-      // Set the user and return success
-      setUser(newUser);
       setIsLoading(false);
-      return true;
+      return !!result?.ok;
     } catch (error) {
       console.error('Sign in error:', error);
       setIsLoading(false);
@@ -116,9 +118,23 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Sign in with Google function
+  const signInWithGoogle = async (): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const result = await nextAuthSignIn('google', { redirect: false });
+      setIsLoading(false);
+      return !!result?.ok;
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
   // Sign out function
   const signOut = () => {
-    // In a real app, this would clear auth tokens
+    nextAuthSignOut({ redirect: false });
     setUser(null);
   };
 
@@ -127,6 +143,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     setUser,
     isLoading,
     signIn,
+    signInWithGoogle,
     signOut,
     isAuthenticated: !!user,
   };
