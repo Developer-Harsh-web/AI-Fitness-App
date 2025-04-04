@@ -1,9 +1,11 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import Providers from "./providers";
+import { Inter } from 'next/font/google';
+import { UserContextProvider } from '../lib/hooks/UserContext';
+import { MealTrackingProvider } from '../lib/hooks/MealTrackingContext';
+import NextAuthSessionProvider from '../components/providers/SessionProvider';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: "FitCoach - Your AI Fitness Companion",
@@ -18,7 +20,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <NextAuthSessionProvider>
+          <UserContextProvider>
+            <MealTrackingProvider>
+              {children}
+            </MealTrackingProvider>
+          </UserContextProvider>
+        </NextAuthSessionProvider>
       </body>
     </html>
   );

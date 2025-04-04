@@ -6,16 +6,24 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Button from '../ui/Button';
 import { useRouter } from 'next/navigation';
-import { User, UserPreferences } from '../../types';
+import { useUserContext } from '../../lib/hooks/UserContext';
+import Link from 'next/link';
 
 const registerSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
   email: z.string().email({ message: 'Please enter a valid email address' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters' }),
+  password: z.string()
+    .min(8, { message: 'Password must be at least 8 characters' })
+    .regex(/[A-Z]/, { message: 'Password must contain at least one uppercase letter' })
+    .regex(/[a-z]/, { message: 'Password must contain at least one lowercase letter' })
+    .regex(/[0-9]/, { message: 'Password must contain at least one number' }),
   confirmPassword: z.string(),
   height: z.string().optional(),
   weight: z.string().optional(),
   gender: z.enum(['male', 'female', 'other', '']).optional(),
+  fitnessLevel: z.enum(['beginner', 'intermediate', 'advanced']).default('beginner'),
+  fitnessGoals: z.array(z.string()).optional(),
+  coachingIntensity: z.enum(['light', 'moderate', 'intensive']).default('moderate'),
   measurementSystem: z.enum(['metric', 'imperial']).default('metric'),
   acceptTerms: z.boolean().refine(val => val === true, { message: 'You must accept the terms and conditions' }),
 }).refine(data => data.password === data.confirmPassword, {
@@ -28,7 +36,10 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 export default function RegisterForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
+  const { setUser, signInWithGoogle } = useUserContext();
 
   const {
     register,
@@ -38,51 +49,128 @@ export default function RegisterForm() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       measurementSystem: 'metric',
+      fitnessLevel: 'beginner',
     },
   });
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsSubmitting(true);
+    setRegisterError(null);
     
     try {
       // Create new user object with form data
-      const preferences: UserPreferences = {
-        measurementSystem: data.measurementSystem,
-        theme: 'system',
-        notificationsEnabled: true,
-        motivationFrequency: 'daily',
-      };
-      
-      const newUser: User = {
+      const newUser = {
         id: Date.now().toString(), // Generate a unique ID
         name: data.name,
         email: data.email,
-        height: data.height ? Number(data.height) : 175,
-        weight: data.weight ? Number(data.weight) : 70,
-        preferences: preferences,
-        goals: [
-          {
-            id: '1',
-            type: 'weight',
-            target: 65,
-            deadline: new Date('2024-12-31'),
-            progress: 0,
-            completed: false,
-          }
-        ],
+        preferences: {
+          fitnessLevel: data.fitnessLevel || 'beginner',
+          fitnessGoals: data.fitnessGoals || ['lose weight', 'improve fitness'],
+          dietaryPreferences: [],
+          weightUnit: data.measurementSystem === 'metric' ? 'kg' : 'lbs',
+          heightUnit: data.measurementSystem === 'metric' ? 'cm' : 'ft',
+          checkInFrequency: data.coachingIntensity || 'moderate',
+          notificationPreferences: {
+            meals: true,
+            activity: true,
+            water: true,
+            sleep: true,
+            measurements: true,
+          },
+          trackingDevices: [],
+          trackingApps: [],
+          aiPersonaId: 'coach-alex',
+        },
+        stats: {
+          weight: data.weight ? Number(data.weight) : 70,
+          height: data.height ? Number(data.height) : 175,
+          age: 30,
+          gender: data.gender || 'male',
+          activityLevel: 'moderate',
+        },
       };
       
-      // Save user to localStorage
-      localStorage.setItem('fitcoach_user', JSON.stringify(newUser));
-      
       // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Set user in context
+      setUser(newUser);
       
       setSubmitSuccess(true);
     } catch (error) {
       console.error('Registration error:', error);
+      setRegisterError('An error occurred during registration. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Handle Google registration
+  const handleGoogleSignUp = async () => {
+    try {
+      setIsGoogleLoading(true);
+      setRegisterError(null);
+      
+      // This would normally call an API or service to register with Google
+      // We'll use the same signInWithGoogle function - if it fails, we know
+      // the user isn't registered and we should create a new account
+      
+      // Try to sign in with Google first
+      const signInResult = await signInWithGoogle();
+      
+      // If sign in is successful, user already exists, redirect to dashboard
+      if (signInResult) {
+        router.push('/dashboard');
+        return;
+      }
+      
+      // If sign in fails, create a new user with Google
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Set default coaching intensity to moderate
+      const coachingIntensity = 'moderate';
+      
+      const newUser = {
+        id: Date.now().toString(),
+        name: 'Google User',
+        email: 'google-user@example.com',
+        preferences: {
+          fitnessLevel: 'beginner',
+          fitnessGoals: ['lose weight', 'improve fitness'],
+          dietaryPreferences: [],
+          weightUnit: 'kg',
+          heightUnit: 'cm',
+          checkInFrequency: coachingIntensity,
+          notificationPreferences: {
+            meals: true,
+            activity: true,
+            water: true,
+            sleep: true,
+            measurements: true,
+          },
+          trackingDevices: [],
+          trackingApps: [],
+          aiPersonaId: 'coach-alex',
+        },
+        stats: {
+          weight: 70,
+          height: 175,
+          age: 30,
+          gender: 'male',
+          activityLevel: 'moderate',
+        },
+      };
+      
+      // Set user in context
+      setUser(newUser);
+      
+      // Redirect to dashboard - new account created
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Google registration error:', error);
+      setRegisterError('An error occurred during Google registration. Please try again.');
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -91,13 +179,13 @@ export default function RegisterForm() {
       <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
         <h3 className="text-lg font-semibold text-green-800 dark:text-green-400 mb-2">Registration Successful!</h3>
         <p className="text-green-700 dark:text-green-300 mb-4">
-          Your account has been created successfully. You can now log in.
+          Your account has been created successfully. You can now proceed to the dashboard.
         </p>
         <Button 
-          onClick={() => router.push('/login')}
+          onClick={() => router.push('/dashboard')}
           className="w-full"
         >
-          Go to Login
+          Go to Dashboard
         </Button>
       </div>
     );
@@ -105,6 +193,12 @@ export default function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {registerError && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
+          {registerError}
+        </div>
+      )}
+
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Full Name
@@ -241,6 +335,64 @@ export default function RegisterForm() {
         </div>
       </div>
 
+      <div className="border-t border-gray-200 dark:border-gray-800 pt-6">
+        <h3 className="text-base font-medium text-gray-900 dark:text-white mb-4">AI Coaching Preferences</h3>
+        
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+          How often would you like your AI coach to check in on you?
+        </label>
+        
+        <div className="space-y-4">
+          <div className="relative flex items-start">
+            <div className="flex items-center h-5">
+              <input
+                id="coaching-light"
+                type="radio"
+                value="light"
+                className="text-blue-600 focus:ring-blue-500"
+                {...register('coachingIntensity')}
+              />
+            </div>
+            <div className="ml-3 text-sm">
+              <label htmlFor="coaching-light" className="font-medium text-gray-700 dark:text-gray-300">Light</label>
+              <p className="text-gray-500 dark:text-gray-400">Check-ins once or twice per day. Best for those who prefer minimal interruptions.</p>
+            </div>
+          </div>
+          
+          <div className="relative flex items-start">
+            <div className="flex items-center h-5">
+              <input
+                id="coaching-moderate"
+                type="radio"
+                value="moderate"
+                className="text-blue-600 focus:ring-blue-500"
+                {...register('coachingIntensity')}
+              />
+            </div>
+            <div className="ml-3 text-sm">
+              <label htmlFor="coaching-moderate" className="font-medium text-gray-700 dark:text-gray-300">Moderate</label>
+              <p className="text-gray-500 dark:text-gray-400">Check-ins 3-5 times per day. Balanced accountability without being intrusive.</p>
+            </div>
+          </div>
+          
+          <div className="relative flex items-start">
+            <div className="flex items-center h-5">
+              <input
+                id="coaching-intensive"
+                type="radio"
+                value="intensive"
+                className="text-blue-600 focus:ring-blue-500"
+                {...register('coachingIntensity')}
+              />
+            </div>
+            <div className="ml-3 text-sm">
+              <label htmlFor="coaching-intensive" className="font-medium text-gray-700 dark:text-gray-300">Intensive</label>
+              <p className="text-gray-500 dark:text-gray-400">Frequent check-ins every 30-60 minutes. Maximum accountability for dedicated fitness goals.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-start">
         <input
           id="acceptTerms"
@@ -266,10 +418,40 @@ export default function RegisterForm() {
 
       <div className="text-center text-sm text-gray-600 dark:text-gray-400">
         Already have an account?{' '}
-        <a href="/login" className="text-blue-600 dark:text-blue-400 hover:underline">
+        <Link href="/login" className="text-blue-600 dark:text-blue-400 hover:underline">
           Sign in
-        </a>
+        </Link>
       </div>
+
+      {/* Add Google Sign Up Button */}
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-white dark:bg-gray-900 px-4 text-sm text-gray-500 dark:text-gray-400">
+            Or continue with
+          </span>
+        </div>
+      </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        fullWidth
+        onClick={handleGoogleSignUp}
+        isLoading={isGoogleLoading}
+      >
+        {!isGoogleLoading && (
+          <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+          </svg>
+        )}
+        Sign up with Google
+      </Button>
     </form>
   );
 } 

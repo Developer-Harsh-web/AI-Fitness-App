@@ -39,7 +39,7 @@ body {
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.3s ease-in-out forwards;
+  animation: fadeIn 0.5s ease-in-out;
 }
 
 /* Scrollbar styling */
@@ -74,5 +74,52 @@ body {
   
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Toggle Switch Styles */
+.toggle-checkbox:checked {
+  @apply right-0 border-blue-600;
+}
+.toggle-checkbox:checked + .toggle-label {
+  @apply bg-blue-600;
+}
+.toggle-checkbox {
+  @apply right-0 border-4 border-gray-300 dark:border-gray-600;
+}
+.toggle-label {
+  @apply block overflow-hidden h-6 rounded-full bg-gray-300 dark:bg-gray-600 cursor-pointer;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .range-thumb {
+    @apply appearance-none w-6 h-6 rounded-full bg-white border-2 border-gray-300 dark:border-gray-500 cursor-pointer transition-colors;
+  }
+  
+  .range-thumb:hover {
+    @apply border-blue-500;
+  }
+  
+  .range-track {
+    @apply block overflow-hidden h-6 rounded-full bg-gray-300 dark:bg-gray-600 cursor-pointer;
   }
 }

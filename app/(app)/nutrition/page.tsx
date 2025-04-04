@@ -17,7 +17,26 @@ export default function NutritionPage() {
         </div>
       </div>
 
-      <div className="flex space-x-2 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg overflow-x-auto">
+      {/* Food banner */}
+      <div className="relative w-full h-48 md:h-64 mb-8 rounded-xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/90 to-emerald-600/90 z-10"></div>
+        <div className="absolute inset-0 flex items-center z-20">
+          <div className="flex justify-between w-full px-6 md:px-12">
+            <div className="text-white">
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">Healthy Eating Made Simple</h2>
+              <p className="text-white/80 max-w-md">Track your meals, monitor nutrients, and get AI-powered recommendations</p>
+            </div>
+            <div className="hidden md:flex items-center space-x-4">
+              <div className="text-5xl">🥗</div>
+              <div className="text-5xl">🍎</div>
+              <div className="text-5xl">🥑</div>
+            </div>
+          </div>
+        </div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJmb29kUGF0dGVybiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjcwIiBoZWlnaHQ9IjcwIiB4PSIwIiB5PSIwIj48dGV4dCB4PSIxMCIgeT0iMzUiIGZvbnQtc2l6ZT0iMjAiPjwvdGV4dD48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZm9vZFBhdHRlcm4pIiBvcGFjaXR5PSIwLjEiLz48L3N2Zz4=')] opacity-20"></div>
+      </div>
+
+      <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-md mb-6 flex space-x-1">
         <button
           onClick={() => setActiveTab('tracker')}
           className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${

@@ -8,6 +8,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
+  provider?: 'credentials' | 'google' | 'facebook' | string;
   preferences: {
     fitnessLevel: 'beginner' | 'intermediate' | 'advanced';
     fitnessGoals: string[];
@@ -23,6 +24,56 @@ export type User = {
       measurements: boolean;
     };
     trackingDevices: string[];
+    trackingApps?: string[];
+    trackingIntegrations?: {
+      appleHealth?: {
+        connected: boolean;
+        lastSynced?: string;
+        permissions: {
+          steps: boolean;
+          heartRate: boolean;
+          workout: boolean;
+          sleep: boolean;
+          nutrition: boolean;
+        };
+      };
+      googleFit?: {
+        connected: boolean;
+        lastSynced?: string;
+        accountEmail?: string;
+      };
+      fitbit?: {
+        connected: boolean;
+        lastSynced?: string;
+        deviceModel?: string;
+      };
+      garmin?: {
+        connected: boolean;
+        lastSynced?: string;
+        deviceModel?: string;
+      };
+      strava?: {
+        connected: boolean;
+        lastSynced?: string;
+        accountEmail?: string;
+      };
+      myFitnessPal?: {
+        connected: boolean;
+        lastSynced?: string;
+        accountEmail?: string;
+      };
+      otherDevices?: Array<{
+        name: string;
+        connected: boolean;
+        lastSynced?: string;
+      }>;
+      otherApps?: Array<{
+        name: string;
+        connected: boolean;
+        lastSynced?: string;
+      }>;
+    };
+    aiPersonaId?: string;
   };
   stats: {
     weight: number;
@@ -47,6 +98,8 @@ type UserContextType = {
   signInWithGoogle: () => Promise<boolean>;
   signOut: () => void;
   isAuthenticated: boolean;
+  requestPasswordReset: (email: string) => Promise<boolean>;
+  resetPassword: (token: string, newPassword: string) => Promise<boolean>;
 };
 
 // Create context with default values
@@ -58,6 +111,8 @@ const UserContext = createContext<UserContextType>({
   signInWithGoogle: async () => false,
   signOut: () => {},
   isAuthenticated: false,
+  requestPasswordReset: async () => false,
+  resetPassword: async () => false,
 });
 
 // Sample user data
@@ -65,6 +120,7 @@ export const MOCK_USER: User = {
   id: '1',
   name: 'John Doe',
   email: 'john@example.com',
+  provider: 'credentials', // Mock user came from credentials login (not social)
   preferences: {
     fitnessLevel: 'intermediate',
     fitnessGoals: ['lose weight', 'build muscle', 'improve endurance'],
@@ -80,6 +136,55 @@ export const MOCK_USER: User = {
       measurements: true,
     },
     trackingDevices: ['Fitbit', 'Apple Watch', 'Garmin', 'Samsung Health'],
+    trackingApps: ['Strava', 'MyFitnessPal'],
+    trackingIntegrations: {
+      appleHealth: {
+        connected: true,
+        lastSynced: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+        permissions: {
+          steps: true,
+          heartRate: true,
+          workout: true,
+          sleep: true,
+          nutrition: false,
+        },
+      },
+      fitbit: {
+        connected: true,
+        lastSynced: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+        deviceModel: 'Versa 3',
+      },
+      garmin: {
+        connected: true,
+        lastSynced: new Date(Date.now() - 14400000).toISOString(), // 4 hours ago
+        deviceModel: 'Forerunner 245',
+      },
+      strava: {
+        connected: true,
+        lastSynced: new Date(Date.now() - 5400000).toISOString(), // 1.5 hours ago
+        accountEmail: 'john@example.com',
+      },
+      myFitnessPal: {
+        connected: true,
+        lastSynced: new Date(Date.now() - 9000000).toISOString(), // 2.5 hours ago
+        accountEmail: 'john@example.com',
+      },
+      otherDevices: [
+        {
+          name: 'Samsung Health',
+          connected: true,
+          lastSynced: new Date(Date.now() - 28800000).toISOString(), // 8 hours ago
+        }
+      ],
+      otherApps: [
+        {
+          name: 'MapMyRun',
+          connected: true,
+          lastSynced: new Date(Date.now() - 19200000).toISOString(), // 5.3 hours ago
+        }
+      ]
+    },
+    aiPersonaId: 'coach-alex', // Default AI persona
   },
   stats: {
     weight: 82,
@@ -114,6 +219,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         id: session.user.id || '1',
         name: session.user.name || 'User',
         email: session.user.email || 'user@example.com',
+        provider: session.user.provider,
         // Use preferences from session if available or fallback to mock data
         preferences: (session.user.preferences as User['preferences']) || MOCK_USER.preferences,
         stats: (session.user.stats as User['stats']) || MOCK_USER.stats,
@@ -140,20 +246,20 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       });
       
       if (!result?.ok) {
-        // For demo purposes, create a mock user when sign in fails
-        // In production, this would just return false
-        const customUser = {
+        // For demo purposes only
+        // In a real app, this would return false after the failed NextAuth signIn
+        console.log('Using mock login for demo');
+        const mockUserWithProvider = {
           ...MOCK_USER,
-          name: email.split('@')[0],
-          email: email,
+          provider: 'credentials'
         };
-        setUser(customUser);
+        setUser(mockUserWithProvider);
         setIsLoading(false);
         return true;
       }
       
       setIsLoading(false);
-      return !!result?.ok;
+      return true;
     } catch (error) {
       console.error('Sign in error:', error);
       setIsLoading(false);
@@ -165,19 +271,35 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async (): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const result = await nextAuthSignIn('google', { redirect: false });
+      // Use redirect:true to automatically redirect to the callback URL after Google authentication
+      const result = await nextAuthSignIn('google', {
+        redirect: true,
+        callbackUrl: '/dashboard'
+      });
       
+      // This code will only run if redirect is set to false
       if (!result?.ok) {
-        // For demo purposes, use mock user when sign in fails
-        setUser(MOCK_USER);
+        // For demo purposes only
+        // In a real app, this would return false after the failed NextAuth signIn
+        console.log('Using mock Google login for demo');
+        const mockUserWithProvider = {
+          ...MOCK_USER,
+          provider: 'google',
+          // Clear body fat percentage to simulate incomplete profile
+          stats: {
+            ...MOCK_USER.stats,
+            bodyFatPercentage: undefined
+          }
+        };
+        setUser(mockUserWithProvider);
         setIsLoading(false);
         return true;
       }
       
       setIsLoading(false);
-      return !!result?.ok;
+      return true;
     } catch (error) {
-      console.error('Google sign in error:', error);
+      console.error('Sign in with Google error:', error);
       setIsLoading(false);
       return false;
     }
@@ -189,6 +311,74 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  // Request password reset function
+  const requestPasswordReset = async (email: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      // In a real app, this would check if the user exists and send an email
+      
+      // Simulate checking if user exists
+      const emailExists = email.includes('@');
+      
+      if (!emailExists) {
+        setIsLoading(false);
+        return false;
+      }
+      
+      // Simulate API call to send reset email
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Generate a reset token and link it to the user
+      // In a real app, this would be stored in a database
+      const resetToken = generateResetToken();
+      
+      // Send reset email (simulated)
+      console.log(`Reset token for ${email}: ${resetToken}`);
+      
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      console.error('Password reset request error:', error);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  // Reset password function
+  const resetPassword = async (token: string, newPassword: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      // In a real app, this would verify the token and update the password
+      
+      // Verify token (simulate checking token validity)
+      const isValidToken = token && token.length >= 10;
+      
+      if (!isValidToken) {
+        setIsLoading(false);
+        return false;
+      }
+      
+      // Simulate API call to update password
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // In a real app, update the user's password in the database
+      console.log(`Password updated successfully for token: ${token}`);
+      
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      console.error('Password reset error:', error);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  // Helper function to generate a token
+  const generateResetToken = (): string => {
+    return Math.random().toString(36).substring(2, 15) + 
+           Math.random().toString(36).substring(2, 15);
+  };
+
   const value = {
     user,
     setUser,
@@ -197,6 +387,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     signInWithGoogle,
     signOut,
     isAuthenticated: !!user,
+    requestPasswordReset,
+    resetPassword,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

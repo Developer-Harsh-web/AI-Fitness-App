@@ -8,8 +8,16 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
+      provider?: string;
       preferences?: User["preferences"];
       stats?: User["stats"];
     } & DefaultSession["user"];
+  }
+  
+  interface JWT {
+    id: string;
+    provider?: string;
+    preferences?: User["preferences"];
+    stats?: User["stats"];
   }
 } 

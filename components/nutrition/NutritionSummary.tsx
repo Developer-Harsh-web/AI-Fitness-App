@@ -28,6 +28,17 @@ const SAMPLE_NUTRITION_DATA = {
   },
 };
 
+// Food icon mapping
+const NUTRIENT_ICONS = {
+  protein: '🥩',
+  carbs: '🍚',
+  fats: '🥑',
+  fiber: '🍎',
+  water: '💧',
+  vitamins: '🥕',
+  minerals: '🧂',
+};
+
 export default function NutritionSummary() {
   const { user } = useUserContext();
   const [timeframe, setTimeframe] = useState<'week' | 'month'>('week');
@@ -46,6 +57,26 @@ export default function NutritionSummary() {
   
   const daysOfWeek = getDaysOfWeek();
   
+  // Mock data for the visualization
+  const weeklyData = [
+    { day: 'Mon', calories: 2100, protein: 120, carbs: 210, fats: 70 },
+    { day: 'Tue', calories: 2250, protein: 130, carbs: 225, fats: 75 },
+    { day: 'Wed', calories: 1950, protein: 115, carbs: 195, fats: 65 },
+    { day: 'Thu', calories: 2300, protein: 135, carbs: 230, fats: 77 },
+    { day: 'Fri', calories: 2400, protein: 140, carbs: 240, fats: 80 },
+    { day: 'Sat', calories: 2600, protein: 150, carbs: 260, fats: 87 },
+    { day: 'Sun', calories: 2200, protein: 125, carbs: 220, fats: 73 },
+  ];
+
+  const dailyAverage = {
+    calories: Math.round(weeklyData.reduce((sum, day) => sum + day.calories, 0) / 7),
+    protein: Math.round(weeklyData.reduce((sum, day) => sum + day.protein, 0) / 7),
+    carbs: Math.round(weeklyData.reduce((sum, day) => sum + day.carbs, 0) / 7),
+    fats: Math.round(weeklyData.reduce((sum, day) => sum + day.fats, 0) / 7),
+  };
+
+  const maxCalories = Math.max(...weeklyData.map(day => day.calories));
+
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
       <Card className="md:col-span-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Clock, Bot, User as UserIcon, ArrowUp, RotateCcw, ArrowDown } from 'lucide-react';
+import { Send, Mic, MicOff, Clock, Bot, User as UserIcon, ArrowUp, RotateCcw, ArrowDown, MessageSquare } from 'lucide-react';
 import Button from '../ui/Button';
 import { useUserContext, User } from '../../lib/hooks/UserContext';
 import { format } from 'date-fns';
@@ -21,28 +21,52 @@ interface QuickSuggestion {
   text: string;
 }
 
+// AI personalities for more engaging conversations
+const aiPersonalities = [
+  {
+    name: "Coach Alex",
+    greeting: "Hey there! Coach Alex here. Ready to crush some goals today? 💪",
+    style: "enthusiastic",
+    emoji: "💪"
+  },
+  {
+    name: "Nutritionist Maya",
+    greeting: "Hi! I'm Maya, your nutrition expert. How's your meal planning going? 🥗",
+    style: "supportive",
+    emoji: "🥗"
+  },
+  {
+    name: "Trainer Sam",
+    greeting: "Welcome back! Sam here to help you with your fitness journey. What's on the agenda today? 🏋️",
+    style: "motivational",
+    emoji: "🏋️"
+  }
+];
+
 export default function AiChat() {
   const [inputMessage, setInputMessage] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [aiPersonality, setAiPersonality] = useState(aiPersonalities[Math.floor(Math.random() * aiPersonalities.length)]);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       role: 'assistant',
-      content: 'Hi there! I\'m your AI fitness companion. How can I help you today?',
+      content: aiPersonality.greeting,
       timestamp: new Date(),
       type: 'text',
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useUserContext();
   
   // Quick suggestions based on context
   const [suggestions, setSuggestions] = useState<QuickSuggestion[]>([
-    { id: '1', text: 'How many calories can I eat today?' },
-    { id: '2', text: 'What workout should I do today?' },
-    { id: '3', text: 'How much progress have I made this week?' },
-    { id: '4', text: 'Help me plan my meals for tomorrow.' },
+    { id: '1', text: 'How many calories should I eat today?' },
+    { id: '2', text: 'What workout would you recommend for me?' },
+    { id: '3', text: 'How\'s my progress this week?' },
+    { id: '4', text: 'Can you create a meal plan for tomorrow?' },
   ]);
   
   // Add a state to track if auto-scrolling should happen
@@ -94,9 +118,6 @@ export default function AiChat() {
         const { scrollHeight, scrollTop, clientHeight } = chatContainer;
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
         
-        // Only auto-scroll when explicitly requested by user action
-        // Don't change shouldAutoScroll here - let it be controlled only by explicit actions
-        
         // Show scroll button when not at bottom
         setShowScrollButton(!isNearBottom);
       }, 100);
@@ -112,27 +133,87 @@ export default function AiChat() {
     };
   }, []);
   
-  // Simulate AI response
+  // Add check-in messages after periods of inactivity
+  useEffect(() => {
+    if (!checkInsEnabled || messages.length === 0) return;
+    
+    // Set a timer to check in if user hasn't sent a message in a while
+    const checkInTimer = setTimeout(() => {
+      const lastMessage = messages[messages.length - 1];
+      const now = new Date();
+      const timeSinceLastMessage = now.getTime() - lastMessage.timestamp.getTime();
+      
+      // If it's been more than 3 minutes since the last message and the last message wasn't from the assistant
+      if (timeSinceLastMessage > 3 * 60 * 1000 && lastMessage.role !== 'assistant') {
+        // Add a check-in message
+        const checkInMessages = [
+          `${aiPersonality.name} here. Need any help with your fitness goals? ${aiPersonality.emoji}`,
+          `Hey there! Just checking in. How's your day going? Anything I can help with? ${aiPersonality.emoji}`,
+          `Still thinking about your fitness journey? I'm here when you need me! ${aiPersonality.emoji}`,
+          `Don't forget to stay hydrated today! Need any workout tips? ${aiPersonality.emoji}`
+        ];
+        
+        const randomCheckIn = checkInMessages[Math.floor(Math.random() * checkInMessages.length)];
+        
+        const checkInMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: randomCheckIn,
+          timestamp: new Date(),
+          type: 'text',
+        };
+        
+        setMessages(prevMessages => [...prevMessages, checkInMessage]);
+      }
+    }, 3 * 60 * 1000); // 3 minutes
+    
+    return () => clearTimeout(checkInTimer);
+  }, [messages, checkInsEnabled, aiPersonality]);
+  
+  // Simulate AI response with personality
   const getAIResponse = async (userMessage: string, user: User | null): Promise<string> => {
     // In a real app, this would call an AI service
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsTyping(true);
+    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1500));
+    setIsTyping(false);
     
     // Simple keyword-based response for demo purposes
     const lowercaseMessage = userMessage.toLowerCase();
     
     // Use user data for personalized responses
-    const name = user?.name || 'there';
+    const name = user?.name?.split(' ')[0] || 'there';
+    const timeOfDay = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening';
+    
+    // Add personality and conversational elements
+    const fillers = [
+      `Great question, ${name}! `,
+      `I'm glad you asked, ${name}. `,
+      `Let me help with that, ${name}. `,
+      `Good ${timeOfDay}, ${name}! `,
+      `${aiPersonality.emoji} Absolutely! `
+    ];
+    
+    const randomFiller = fillers[Math.floor(Math.random() * fillers.length)];
     
     if (lowercaseMessage.includes('workout') || lowercaseMessage.includes('exercise')) {
-      return `Based on your fitness goals and level, I'd recommend a ${user?.preferences.fitnessLevel || 'moderate'} intensity workout focusing on ${user?.preferences.fitnessGoals?.join(' and ') || 'strength and cardio'}. Would you like me to create a personalized plan?`;
+      const workoutTypes = ['HIIT', 'strength training', 'yoga', 'circuit training', 'cardio'];
+      const randomWorkout = workoutTypes[Math.floor(Math.random() * workoutTypes.length)];
+      return `${randomFiller}Based on your ${user?.preferences.fitnessLevel || 'fitness'} level and goals to focus on ${user?.preferences.fitnessGoals?.join(' and ') || 'overall fitness'}, I'd recommend a ${randomWorkout} session today. Would you like me to create a customized plan for you? I can tailor it exactly to your preferences! ${aiPersonality.emoji}`;
     } else if (lowercaseMessage.includes('diet') || lowercaseMessage.includes('nutrition') || lowercaseMessage.includes('eat')) {
-      return `Hi ${name}! For your current goals, I recommend focusing on ${user?.preferences.dietaryPreferences?.join(', ') || 'balanced nutrition'} with plenty of protein and vegetables. Your daily calorie target should be around ${Math.round((user?.stats.weight || 70) * 30)} calories.`;
+      const calorieTarget = Math.round((user?.stats.weight || 70) * 30);
+      const proteinTarget = Math.round((user?.stats.weight || 70) * 1.8);
+      return `${randomFiller}For your current goals and activity level, I'd suggest focusing on ${user?.preferences.dietaryPreferences?.join(', ') || 'balanced nutrition'} with about ${calorieTarget} calories daily. Try to get at least ${proteinTarget}g of protein to support your muscle recovery and growth. Want me to suggest some meal ideas that match your preferences? ${aiPersonality.emoji}`;
     } else if (lowercaseMessage.includes('progress') || lowercaseMessage.includes('weight') || lowercaseMessage.includes('goal')) {
-      return `You're making great progress, ${name}! Your current weight is ${user?.stats.weight || '--'}kg, and you're on track to reach your goal. Keep up the good work!`;
+      const progress = Math.round(Math.random() * 10) / 10;
+      return `${randomFiller}You're crushing it! ${aiPersonality.emoji} Your current weight is ${user?.stats.weight || '--'}kg, which is ${progress}kg ${Math.random() > 0.5 ? 'down' : 'up'} from last week. Keep up the great work! I notice your consistency has been excellent - that's the real key to long-term success.`;
     } else if (lowercaseMessage.includes('hello') || lowercaseMessage.includes('hi ')) {
-      return `Hello ${name}! How can I help you with your fitness journey today?`;
+      return `Hey ${name}! ${aiPersonality.emoji} Great to see you again! How's your ${timeOfDay} going? I'm here to help with anything fitness or nutrition related.`;
+    } else if (lowercaseMessage.includes('thank')) {
+      return `You're very welcome, ${name}! That's what I'm here for. ${aiPersonality.emoji} Is there anything else I can help you with today?`;
+    } else if (lowercaseMessage.includes('tired') || lowercaseMessage.includes('sore')) {
+      return `I understand, ${name}. Rest days are just as important as workout days! ${aiPersonality.emoji} How about some gentle stretching or a short walk to help with recovery? Remember to stay hydrated and get enough sleep tonight.`;
     } else {
-      return `I'm here to help with your fitness journey. You can ask me about workouts, nutrition plans, progress tracking, or tips for reaching your fitness goals.`;
+      return `${randomFiller}I'm here to support your fitness journey every step of the way. You can ask me about workouts, nutrition plans, recovery tips, or anything else to help you reach your goals. What's on your mind today? ${aiPersonality.emoji}`;
     }
   };
   
@@ -161,10 +242,16 @@ export default function AiChat() {
     setIsLoading(true);
     
     try {
+      // Add typing indicator after a short delay for realism
+      setTimeout(() => setIsTyping(true), 300);
+      
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
       
       const aiResponse = await getAIResponse(userMessage, user);
+      
+      // Remove typing indicator
+      setIsTyping(false);
       
       // Add AI message after receiving response
       const aiMessageObj: ChatMessage = {
@@ -181,12 +268,13 @@ export default function AiChat() {
       updateSuggestions(userMessage, aiResponse);
     } catch (error) {
       console.error('Error getting AI response:', error);
+      setIsTyping(false);
       
       // Add error message
       const errorMessageObj: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm sorry, I couldn't process your request. Please try again.",
+        content: "I'm sorry, I couldn't process your request right now. Can you try again in a moment? My circuits might need a short break! 😅",
         timestamp: new Date(),
         type: 'text',
       };
@@ -206,32 +294,39 @@ export default function AiChat() {
     
     if (lowerUserMsg.includes('workout') || lowerUserMsg.includes('exercise')) {
       newSuggestions = [
-        { id: '1', text: 'Show me the workout details' },
-        { id: '2', text: 'Is this good for weight loss?' },
+        { id: '1', text: 'Show me the detailed workout plan' },
+        { id: '2', text: 'Is this good for my weight loss goal?' },
         { id: '3', text: 'How many calories will this burn?' },
-        { id: '4', text: 'I want something easier' },
+        { id: '4', text: 'I need something less intense today' },
       ];
     } else if (lowerUserMsg.includes('calorie') || lowerUserMsg.includes('eat')) {
       newSuggestions = [
-        { id: '1', text: 'Suggest a healthy snack' },
-        { id: '2', text: 'How can I reduce my appetite?' },
-        { id: '3', text: 'Show my calorie breakdown' },
-        { id: '4', text: 'Log my lunch' },
+        { id: '1', text: 'Can you suggest a healthy snack?' },
+        { id: '2', text: 'How can I reduce cravings?' },
+        { id: '3', text: 'What\'s my nutrient breakdown?' },
+        { id: '4', text: 'Help me log my lunch' },
       ];
     } else if (lowerAiResp.includes('recipe') || lowerUserMsg.includes('meal')) {
       newSuggestions = [
-        { id: '1', text: 'Show me the breakfast recipe' },
-        { id: '2', text: 'Show me the lunch recipe' },
-        { id: '3', text: 'Show me the dinner recipe' },
-        { id: '4', text: 'Suggest alternatives' },
+        { id: '1', text: 'Show me a high-protein breakfast' },
+        { id: '2', text: 'I need a quick lunch idea' },
+        { id: '3', text: 'What\'s a healthy dinner option?' },
+        { id: '4', text: 'I\'m vegetarian, any alternatives?' },
+      ];
+    } else if (lowerUserMsg.includes('thank')) {
+      newSuggestions = [
+        { id: '1', text: 'I have another question' },
+        { id: '2', text: 'Help me with today\'s workout' },
+        { id: '3', text: 'What should I eat after workout?' },
+        { id: '4', text: 'How\'s my progress looking?' },
       ];
     } else {
       // Default suggestions
       newSuggestions = [
-        { id: '1', text: 'What\'s my progress this week?' },
-        { id: '2', text: 'When should I work out today?' },
-        { id: '3', text: 'How\'s my sleep quality?' },
-        { id: '4', text: 'Help me stay motivated' },
+        { id: '1', text: 'How\'s my progress this week?' },
+        { id: '2', text: 'What workout should I do today?' },
+        { id: '3', text: 'Can you check my sleep quality?' },
+        { id: '4', text: 'I need some motivation' },
       ];
     }
     
@@ -248,9 +343,12 @@ export default function AiChat() {
       // In a real app, this would use the Web Speech API
       setIsListening(true);
       setShouldAutoScroll(true);
+      
+      // Simulate voice recognition after 2 seconds
       setTimeout(() => {
+        const simulatedVoiceInput = suggestions[Math.floor(Math.random() * suggestions.length)].text;
+        setInputMessage(simulatedVoiceInput);
         setIsListening(false);
-        setInputMessage('I want to improve my running performance');
       }, 2000);
     } else {
       setIsListening(false);
@@ -258,240 +356,235 @@ export default function AiChat() {
   };
   
   const handleAddReminder = () => {
-    setShouldAutoScroll(true);
+    const reminderTime = new Date();
+    reminderTime.setHours(reminderTime.getHours() + 1);
     
-    // Simulate adding a reminder
     const reminderMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'system',
-      content: 'Reminder set: "Drink water" - I\'ll remind you every 2 hours',
+      content: `Reminder set for ${format(reminderTime, 'h:mm a')}: Drink water and stretch.`,
       timestamp: new Date(),
       type: 'reminder',
     };
     
-    setMessages(prev => [...prev, reminderMessage]);
-  };
-  
-  // Add a manual scroll function for the reset button
-  const resetChat = () => {
-    setShouldAutoScroll(true);
-    setMessages([{
-      id: '1',
+    setMessages(prevMessages => [...prevMessages, reminderMessage]);
+    
+    // Also add assistant confirmation
+    const assistantMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
       role: 'assistant',
-      content: 'Hi there! I\'m your AI fitness companion. How can I help you today?',
+      content: `Great! I've set a reminder for you at ${format(reminderTime, 'h:mm a')} to drink water and stretch. I'll send you a notification then. Staying hydrated is so important for your fitness goals! ${aiPersonality.emoji}`,
       timestamp: new Date(),
       type: 'text',
-    }]);
-  };
-  
-  // Modify the scheduled check-in function to respect the enabled state
-  useEffect(() => {
-    if (!user || !checkInsEnabled) return;
-    
-    const checkInIntervals = {
-      'low': 8 * 60 * 60 * 1000, // 8 hours in ms
-      'medium': 3 * 60 * 60 * 1000, // 3 hours in ms
-      'high': 15 * 60 * 1000, // 15 minutes in ms
     };
     
-    const interval = checkInIntervals[user.preferences.checkInFrequency || 'medium'];
+    setMessages(prevMessages => [...prevMessages, assistantMessage]);
+    setShouldAutoScroll(true);
+  };
+  
+  const resetChat = () => {
+    // Pick a new random AI personality
+    const newPersonality = aiPersonalities[Math.floor(Math.random() * aiPersonalities.length)];
+    setAiPersonality(newPersonality);
     
-    // For demo purposes, we'll use a shorter interval
-    const demoInterval = interval / 60; // Much faster for demo
-    
-    const checkInTimer = setTimeout(() => {
-      // NEVER auto-scroll for automatic check-ins
-      setShouldAutoScroll(false);
-      
-      const suggestions = [
-        'Have you had enough water today?',
-        'Time to stand up and stretch!',
-        'Ready for a quick activity break?',
-        'How are you feeling right now?',
-        'Let\'s check your step count - on track for today?',
-      ];
-      
-      // Add system check-in message
-      const checkInMessage: ChatMessage = {
+    setMessages([
+      {
         id: Date.now().toString(),
         role: 'assistant',
-        content: suggestions[Math.floor(Math.random() * suggestions.length)],
+        content: newPersonality.greeting,
         timestamp: new Date(),
-        type: 'suggestion',
-      };
-      
-      setMessages(prev => [...prev, checkInMessage]);
-    }, demoInterval);
+        type: 'text',
+      }
+    ]);
     
-    return () => clearTimeout(checkInTimer);
-  }, [user, messages.length, checkInsEnabled]);
+    // Reset suggestions to default
+    setSuggestions([
+      { id: '1', text: 'How many calories should I eat today?' },
+      { id: '2', text: 'What workout would you recommend for me?' },
+      { id: '3', text: 'How\'s my progress this week?' },
+      { id: '4', text: 'Can you create a meal plan for tomorrow?' },
+    ]);
+    
+    setShouldAutoScroll(true);
+  };
   
-  // Add a function to scroll to bottom
   const scrollToBottom = () => {
     setShouldAutoScroll(true);
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   
-  // Input handling with focus management
-  const inputRef = useRef<HTMLInputElement>(null);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputMessage(e.target.value);
-    // Don't auto-scroll when typing
-    setShouldAutoScroll(false);
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
   
   return (
-    <div className="bg-white dark:bg-gray-800 flex flex-col h-[500px]">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-4 shadow-md">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Bot className="h-5 w-5 text-white mr-3" />
-            <h3 className="text-xl font-semibold text-white">FitCoach AI</h3>
+    <div className="flex flex-col h-[500px]">
+      {/* Chat header */}
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 items-center justify-center">
+            <MessageSquare className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
+              {aiPersonality.name} 
+              <span className="ml-1.5 text-lg">{aiPersonality.emoji}</span>
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Your AI fitness companion</p>
+          </div>
           </div>
           <button 
             onClick={resetChat}
-            className="text-blue-100 hover:text-white p-1.5 hover:bg-blue-500/20 rounded-full transition-colors"
+          className="p-1.5 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+          title="Reset conversation"
           >
             <RotateCcw className="h-4 w-4" />
           </button>
-        </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-gray-50 dark:bg-gray-900/50 relative">
+      {/* Chat messages container */}
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900/30 space-y-4">
         {messages.map((message) => (
           <div 
             key={message.id} 
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
+            className={`flex ${
+              message.role === 'user' ? 'justify-end' : 'justify-start'
+            } ${message.role === 'system' ? 'justify-center' : ''}`}
           >
-            {message.role === 'assistant' && message.type !== 'suggestion' && (
-              <div className="flex-shrink-0 h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center mr-3 shadow-md">
-                <Bot className="h-5 w-5 text-white" />
+            {message.role === 'system' ? (
+              <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs rounded-full px-3 py-1.5 flex items-center">
+                <Clock className="h-3 w-3 mr-1.5" />
+                {message.content}
+              </div>
+            ) : (
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-2 ${
+                  message.role === 'user'
+                    ? 'bg-blue-500 text-white rounded-tr-none'
+                    : 'bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-none'
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  {message.role === 'assistant' && (
+                    <div className="h-6 w-6 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center mt-0.5">
+                      <Bot className="h-3.5 w-3.5 text-white" />
               </div>
             )}
-            
-            {message.role === 'user' && (
-              <div className="flex-shrink-0 h-9 w-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center order-last ml-3 shadow-sm">
-                <UserIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-              </div>
-            )}
-            
+                  <div>
+                    <div className="text-sm">{message.content}</div>
             <div 
-              className={`max-w-[75%] rounded-2xl p-4 shadow-sm ${
+                      className={`text-[10px] mt-1 ${
                 message.role === 'user' 
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
-                  : message.role === 'system' || message.type === 'suggestion'
-                    ? 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/10 dark:to-yellow-900/20 text-gray-800 dark:text-gray-200 border border-yellow-200 dark:border-yellow-800/30' 
-                    : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-700'
-              } ${message.type === 'reminder' ? 'border-l-4 border-yellow-500' : ''}`}
-            >
-              {message.role === 'assistant' && message.type === 'suggestion' && (
-                <div className="flex items-center text-amber-600 dark:text-amber-400 mb-1.5 text-xs font-medium">
-                  <Clock className="h-3.5 w-3.5 mr-1.5" />
-                  <span>Check-in</span>
+                          ? 'text-blue-100'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      {format(message.timestamp, 'h:mm a')}
+                    </div>
+                  </div>
+                  {message.role === 'user' && (
+                    <div className="h-6 w-6 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center mt-0.5">
+                      <UserIcon className="h-3.5 w-3.5 text-gray-700 dark:text-gray-300" />
+                    </div>
+                  )}
                 </div>
-              )}
-              
-              <div className="whitespace-pre-wrap">{message.content}</div>
-              
-              <div className="text-xs mt-2 opacity-70 font-light">
-                {format(message.timestamp, 'h:mm a')}
               </div>
-            </div>
+            )}
           </div>
         ))}
         
-        {isLoading && (
-          <div className="flex justify-start animate-fadeIn">
-            <div className="flex-shrink-0 h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center mr-3 shadow-md">
-              <Bot className="h-5 w-5 text-white" />
+        {/* Typing indicator */}
+        {isTyping && (
+          <div className="flex justify-start">
+            <div className="bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-tl-none px-4 py-2">
+              <div className="flex items-center gap-1">
+                <div className="h-6 w-6 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center">
+                  <Bot className="h-3.5 w-3.5 text-white" />
+                </div>
+                <div className="flex space-x-1">
+                  <div className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
-            <div className="max-w-[75%] rounded-2xl p-4 shadow-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-700">
-              <div className="flex space-x-2 items-center">
-                <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce"></div>
               </div>
             </div>
           </div>
         )}
-        
-        <div ref={messagesEndRef} />
         
         {/* Scroll to bottom button */}
         {showScrollButton && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-5 right-5 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-all"
-            aria-label="Scroll to bottom"
+            className="fixed bottom-36 right-8 p-2 rounded-full bg-gray-200 dark:bg-gray-700 shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors z-10"
           >
-            <ArrowDown className="h-5 w-5" />
+            <ArrowDown className="h-5 w-5 text-gray-600 dark:text-gray-300" />
           </button>
         )}
+        
+        <div ref={messagesEndRef} />
       </div>
       
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-md">
-        <div className="flex flex-wrap gap-2 mb-3">
-          {suggestions.map(suggestion => (
+      {/* Quick suggestions */}
+      <div className="p-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/90 overflow-x-auto">
+        <div className="flex gap-2">
+          {suggestions.map((suggestion) => (
             <button
               key={suggestion.id}
-              className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full text-xs text-blue-800 dark:text-blue-300 font-medium transition-all border border-blue-200 dark:border-blue-800/30"
               onClick={() => handleSuggestionClick(suggestion.text)}
+              className="whitespace-nowrap px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-full border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
             >
               {suggestion.text}
             </button>
           ))}
         </div>
+        </div>
         
-        <div className="flex items-center gap-2">
+      {/* Chat input */}
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center gap-2">
           <button
-            type="button"
-            className={`rounded-full p-2.5 ${
+          onClick={handleVoiceInput}
+          className={`p-2 rounded-full ${
               isListening 
-                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-900/30' 
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-900 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
-            } hover:shadow-md transition-all`}
-            onClick={handleVoiceInput}
+              ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 animate-pulse'
+              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+          }`}
           >
             {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </button>
-          
+        <button
+          onClick={handleAddReminder}
+          className="p-2 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+        >
+          <Clock className="h-5 w-5" />
+        </button>
+        <div className="flex-1 relative">
           <input
-            ref={inputRef}
             type="text"
             value={inputMessage}
             onChange={handleInputChange}
-            placeholder="Ask about workouts, nutrition, goals..."
-            className="flex-1 rounded-full border border-gray-300 bg-white px-4 py-2.5 text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSendMessage();
-              }
-            }}
+            onKeyDown={handleKeyDown}
+            placeholder={`Message ${aiPersonality.name}...`}
+            className="w-full px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
           />
-          
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
+        </div>
+        <button
             onClick={handleSendMessage}
             disabled={isLoading || !inputMessage.trim()}
-            className="rounded-full"
-          >
-            {isLoading ? (
-              <div className="h-5 w-5 border-t-2 border-b-2 border-white rounded-full animate-spin" />
-            ) : (
-              <ArrowUp className="h-5 w-5" />
-            )}
-          </Button>
-          
-          <button
-            type="button"
-            className="rounded-full p-2.5 bg-gray-100 text-gray-600 dark:bg-gray-900 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all"
-            onClick={handleAddReminder}
-          >
-            <Clock className="h-5 w-5" />
+          className={`p-2 rounded-full ${
+            !inputMessage.trim()
+              ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+              : 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
+          }`}
+        >
+          <Send className="h-5 w-5" />
           </button>
-        </div>
       </div>
     </div>
   );

@@ -5,6 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { useUserContext } from '../../lib/hooks/UserContext';
 import Button from '../ui/Button';
 import { LightBulbIcon, ArrowPathIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { RadioGroup, RadioGroupItem } from '../ui/RadioGroup';
+import { Label } from '../ui/Label';
+
+// Food icon mapping
+const FOOD_ICONS = {
+  breakfast: '🍳',
+  lunch: '🥗',
+  dinner: '🍲',
+  snack: '🍌',
+  protein: '🥩',
+  carbs: '🍚',
+  fats: '🥑',
+  fruits: '🍎',
+  vegetables: '🥦',
+};
 
 // AI-generated meal plans based on different goals
 const MEAL_SUGGESTIONS = {
@@ -281,7 +296,7 @@ const NUTRITION_TIPS = {
 
 export default function AINutritionSuggestions() {
   const { user } = useUserContext();
-  const [nutritionGoal, setNutritionGoal] = useState<'weightLoss' | 'muscleGain' | 'maintenance' | 'healthyEating'>('weightLoss');
+  const [goal, setGoal] = useState<'weightLoss' | 'muscleGain' | 'maintenance' | 'healthyEating'>('weightLoss');
   const [selectedMealPlan, setSelectedMealPlan] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [savedMealPlans, setSavedMealPlans] = useState<number[]>([]);
@@ -297,11 +312,11 @@ export default function AINutritionSuggestions() {
       setIsGenerating(false);
     }, 1500);
     
-    return nutritionGoal === 'weightLoss' 
+    return goal === 'weightLoss' 
       ? "Based on your activity level and current diet, try increasing protein to 25-30% of your daily calories and reducing carbohydrates slightly. This may help with satiety while creating a moderate calorie deficit."
-      : nutritionGoal === 'muscleGain'
+      : goal === 'muscleGain'
       ? "Your protein intake is good, but you could benefit from adding 300-400 more calories daily, especially on training days. Consider adding a protein shake with banana and peanut butter after workouts."
-      : nutritionGoal === 'maintenance'
+      : goal === 'maintenance'
       ? "Your current diet is well balanced. Consider adding more variety in your vegetable intake to ensure you're getting a wide range of micronutrients to support overall health."
       : "Your diet is lacking in some essential micronutrients. Try adding more leafy greens and colorful vegetables. Also consider increasing your omega-3 intake through fatty fish or supplements.";
   };
@@ -311,189 +326,116 @@ export default function AINutritionSuggestions() {
   };
 
   const getCurrentMealPlans = () => {
-    return MEAL_SUGGESTIONS[nutritionGoal] || [];
+    return MEAL_SUGGESTIONS[goal] || [];
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-1">
-        <Card>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Card className="col-span-1 md:col-span-3">
           <CardHeader>
-            <CardTitle>Your Nutrition Goal</CardTitle>
+            <CardTitle>Choose Your Nutrition Goal</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <RadioGroup value={goal} onChange={setGoal} className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label htmlFor="nutritionGoal" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Select Goal
-                </label>
-                <select
-                  id="nutritionGoal"
-                  value={nutritionGoal}
-                  onChange={(e) => setNutritionGoal(e.target.value as any)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                <RadioGroupItem value="weightLoss" id="weightLoss" className="peer sr-only" />
+                <Label
+                  htmlFor="weightLoss"
+                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
                 >
-                  <option value="weightLoss">Weight Loss</option>
-                  <option value="muscleGain">Muscle Gain</option>
-                  <option value="maintenance">Weight Maintenance</option>
-                  <option value="healthyEating">Healthy Eating</option>
-                </select>
+                  <div className="mb-2 text-4xl">⚖️</div>
+                  <div className="font-semibold">Weight Loss</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 text-center mt-1">
+                    Calorie-controlled meals to support healthy weight loss
+                  </div>
+                </Label>
               </div>
-              
               <div>
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Personalized AI Suggestion
-                </h3>
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                  {isGenerating ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="w-4 h-4 rounded-full bg-blue-600 animate-pulse"></div>
-                      <div className="w-4 h-4 rounded-full bg-blue-600 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="w-4 h-4 rounded-full bg-blue-600 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                      <span className="text-blue-700 dark:text-blue-400 ml-2">Analyzing your data...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-blue-700 dark:text-blue-400">
-                        <LightBulbIcon className="inline-block h-5 w-5 mr-1" />
-                        {getPersonalizedSuggestion()}
-                      </p>
-                      <button
-                        onClick={() => setIsGenerating(true)}
-                        className="mt-2 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"
-                      >
-                        <ArrowPathIcon className="h-3 w-3 mr-1" />
-                        Generate New Suggestion
-                      </button>
-                    </>
-                  )}
-                </div>
+                <RadioGroupItem value="muscleGain" id="muscleGain" className="peer sr-only" />
+                <Label
+                  htmlFor="muscleGain"
+                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                >
+                  <div className="mb-2 text-4xl">💪</div>
+                  <div className="font-semibold">Muscle Gain</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 text-center mt-1">
+                    Protein-rich meals to support muscle growth and recovery
+                  </div>
+                </Label>
               </div>
-              
               <div>
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Top Tips for {nutritionGoal === 'weightLoss' ? 'Weight Loss' : 
-                               nutritionGoal === 'muscleGain' ? 'Muscle Gain' :
-                               nutritionGoal === 'maintenance' ? 'Maintenance' : 'Healthy Eating'}
-                </h3>
-                <ul className="space-y-2 text-sm">
-                  {NUTRITION_TIPS[nutritionGoal].map((tip, index) => (
-                    <li key={index} className="flex">
-                      <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-700 dark:text-gray-300">{tip}</span>
-                    </li>
-                  ))}
-                </ul>
+                <RadioGroupItem value="healthyEating" id="healthyEating" className="peer sr-only" />
+                <Label
+                  htmlFor="healthyEating"
+                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                >
+                  <div className="mb-2 text-4xl">🥗</div>
+                  <div className="font-semibold">Healthy Eating</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 text-center mt-1">
+                    Balanced nutrition for overall health and wellbeing
+                  </div>
+                </Label>
               </div>
-            </div>
+            </RadioGroup>
           </CardContent>
         </Card>
       </div>
-      
-      <div className="lg:col-span-2">
-        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-          AI-Generated Meal Plans
-        </h2>
-        
-        {getCurrentMealPlans().map((mealPlan) => (
-          <Card key={mealPlan.id} className="mb-4">
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-center">
-                <CardTitle>{mealPlan.title}</CardTitle>
-                <div className="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                  {mealPlan.calories} calories
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {(MEAL_SUGGESTIONS[goal] || []).map((plan) => (
+          <Card key={plan.id} className="overflow-hidden">
+            <CardHeader className="pb-3 border-b">
+              <CardTitle>{plan.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-5">
+              <div className="mb-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">{plan.description}</p>
+                <div className="flex items-center mt-2">
+                  <div className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-sm font-medium py-1 px-2 rounded">
+                    {plan.calories} calories/day
+                  </div>
                 </div>
               </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                {mealPlan.description}
-              </p>
-            </CardHeader>
-            <CardContent>
-              {selectedMealPlan === mealPlan.id ? (
-                <div className="space-y-4">
-                  {mealPlan.meals.map((meal, index) => (
-                    <div key={index} className="border-b border-gray-100 dark:border-gray-800 pb-4 last:border-0 last:pb-0">
-                      <h3 className="text-md font-medium text-gray-900 dark:text-white capitalize">
-                        {meal.type}: {meal.name}
-                      </h3>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {meal.ingredients.map((ingredient, idx) => (
-                          <span key={idx} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
-                            {ingredient}
-                          </span>
-                        ))}
+
+              <div className="space-y-4">
+                {plan.meals.map((meal, index) => (
+                  <div key={index} className="border-t pt-3">
+                    <div className="flex items-center mb-2">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl mr-2">
+                        {FOOD_ICONS[meal.type as keyof typeof FOOD_ICONS] || '🍽️'}
                       </div>
-                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                        <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-center">
-                          <span className="font-medium block">{meal.calories}</span>
-                          <span className="text-gray-500 dark:text-gray-400">calories</span>
-                        </div>
-                        <div className="bg-red-50 dark:bg-red-900/20 p-2 rounded text-center">
-                          <span className="font-medium block">{meal.protein}g</span>
-                          <span className="text-gray-500 dark:text-gray-400">protein</span>
-                        </div>
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded text-center">
-                          <span className="font-medium block">{meal.carbs}g</span>
-                          <span className="text-gray-500 dark:text-gray-400">carbs</span>
-                        </div>
+                      <div>
+                        <div className="font-medium capitalize">{meal.type}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{meal.calories} cal</div>
                       </div>
                     </div>
-                  ))}
-                  
-                  <div className="flex space-x-3 mt-2">
-                    <Button
-                      onClick={() => setSelectedMealPlan(null)}
-                      variant="outline"
-                    >
-                      Close
-                    </Button>
-                    {!savedMealPlans.includes(mealPlan.id) && (
-                      <Button
-                        onClick={() => handleSaveMealPlan(mealPlan.id)}
-                      >
-                        Save Meal Plan
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex justify-between items-center">
-                  <div className="flex space-x-4 text-sm">
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Meals:</span>{' '}
-                      <span className="font-medium">{mealPlan.meals.length}</span>
+                    
+                    <div className="font-medium text-sm mb-1">{meal.name}</div>
+                    <div className="flex flex-wrap items-center text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      {meal.ingredients.map((ingredient, i) => (
+                        <span key={i} className="mr-2 mb-1 bg-gray-100 dark:bg-gray-800 py-1 px-2 rounded-full">
+                          {ingredient}
+                        </span>
+                      ))}
                     </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Protein:</span>{' '}
-                      <span className="font-medium">
-                        {mealPlan.meals.reduce((total, meal) => total + meal.protein, 0)}g
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Carbs:</span>{' '}
-                      <span className="font-medium">
-                        {mealPlan.meals.reduce((total, meal) => total + meal.carbs, 0)}g
-                      </span>
+                    
+                    <div className="grid grid-cols-3 gap-2 text-xs my-2">
+                      <div className="flex items-center">
+                        <span className="mr-1">{FOOD_ICONS.protein}</span> {meal.protein}g
+                      </div>
+                      <div className="flex items-center">
+                        <span className="mr-1">{FOOD_ICONS.carbs}</span> {meal.carbs}g
+                      </div>
+                      <div className="flex items-center">
+                        <span className="mr-1">{FOOD_ICONS.fats}</span> {meal.fats}g
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center">
-                    {savedMealPlans.includes(mealPlan.id) && (
-                      <span className="text-green-600 mr-3 flex items-center text-sm">
-                        <CheckCircleIcon className="h-4 w-4 mr-1" />
-                        Saved
-                      </span>
-                    )}
-                    <Button
-                      onClick={() => setSelectedMealPlan(mealPlan.id)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      View Details
-                    </Button>
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
+              
+              <Button className="mt-4 w-full">Save This Plan</Button>
             </CardContent>
           </Card>
         ))}

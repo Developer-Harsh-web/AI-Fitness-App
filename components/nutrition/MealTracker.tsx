@@ -3,64 +3,19 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
-import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { useUserContext } from '../../lib/hooks/UserContext';
+import { useMealTracking } from '../../lib/hooks/MealTrackingContext';
 import { Food, Meal } from '../../types';
-
-// Common food database with nutrition info
-const COMMON_FOODS: Food[] = [
-  { id: '1', name: 'Chicken Breast (100g)', calories: 165, protein: 31, carbs: 0, fats: 3.6, portion: 1 },
-  { id: '2', name: 'Brown Rice (100g, cooked)', calories: 112, protein: 2.6, carbs: 23, fats: 0.9, portion: 1 },
-  { id: '3', name: 'Broccoli (100g)', calories: 34, protein: 2.8, carbs: 7, fats: 0.4, portion: 1 },
-  { id: '4', name: 'Salmon (100g)', calories: 206, protein: 22, carbs: 0, fats: 13, portion: 1 },
-  { id: '5', name: 'Sweet Potato (100g)', calories: 86, protein: 1.6, carbs: 20, fats: 0.1, portion: 1 },
-  { id: '6', name: 'Avocado (1 medium)', calories: 240, protein: 3, carbs: 12, fats: 22, portion: 1 },
-  { id: '7', name: 'Egg (1 large)', calories: 72, protein: 6.3, carbs: 0.4, fats: 5, portion: 1 },
-  { id: '8', name: 'Oatmeal (100g, cooked)', calories: 71, protein: 2.5, carbs: 12, fats: 1.5, portion: 1 },
-  { id: '9', name: 'Banana (1 medium)', calories: 105, protein: 1.3, carbs: 27, fats: 0.4, portion: 1 },
-  { id: '10', name: 'Greek Yogurt (100g)', calories: 59, protein: 10, carbs: 3.6, fats: 0.4, portion: 1 },
-  { id: '11', name: 'Spinach (100g)', calories: 23, protein: 2.9, carbs: 3.6, fats: 0.4, portion: 1 },
-  { id: '12', name: 'Almonds (30g)', calories: 164, protein: 6, carbs: 6, fats: 14, portion: 1 },
-];
+import Image from 'next/image';
+import { HelpCircle } from 'lucide-react';
+import { FOOD_ICONS, MEAL_TYPE_IMAGES, COMMON_FOODS, parsePortionFromDescription, calculateMealTotals } from '../../lib/data/foodData';
 
 export default function MealTracker() {
   const { user } = useUserContext();
-  const [meals, setMeals] = useState<Meal[]>([
-    {
-      id: '1',
-      userId: user?.id || '1',
-      date: new Date(),
-      type: 'breakfast',
-      foods: [],
-      totalCalories: 0,
-    },
-    {
-      id: '2',
-      userId: user?.id || '1',
-      date: new Date(),
-      type: 'lunch',
-      foods: [],
-      totalCalories: 0,
-    },
-    {
-      id: '3',
-      userId: user?.id || '1',
-      date: new Date(),
-      type: 'dinner',
-      foods: [],
-      totalCalories: 0,
-    },
-    {
-      id: '4',
-      userId: user?.id || '1',
-      date: new Date(),
-      type: 'snack',
-      foods: [],
-      totalCalories: 0,
-    },
-  ]);
-
-  const [selectedMealIndex, setSelectedMealIndex] = useState<number | null>(null);
+  const { todaysMeals, addFoodToMeal, removeFoodFromMeal } = useMealTracking();
+  
+  const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
   const [selectedFoodId, setSelectedFoodId] = useState<string>('');
   const [foodPortion, setFoodPortion] = useState<number>(1);
   const [customFood, setCustomFood] = useState<{
@@ -77,147 +32,171 @@ export default function MealTracker() {
     fats: 0,
   });
   const [isAddingCustomFood, setIsAddingCustomFood] = useState(false);
-
-  const calculateMealTotals = (mealFoods: Food[]) => {
-    return mealFoods.reduce(
-      (totals, food) => ({
-        calories: totals.calories + food.calories * food.portion,
-        protein: totals.protein + (food.protein || 0) * food.portion,
-        carbs: totals.carbs + (food.carbs || 0) * food.portion,
-        fats: totals.fats + (food.fats || 0) * food.portion,
-      }),
-      { calories: 0, protein: 0, carbs: 0, fats: 0 }
-    );
-  };
+  const [showPortionTips, setShowPortionTips] = useState(false);
+  const [customFoodDescription, setCustomFoodDescription] = useState('');
 
   const handleAddFood = () => {
-    if (selectedMealIndex === null || (!selectedFoodId && !isAddingCustomFood)) return;
+    if (selectedMealId === null || (!selectedFoodId && !isAddingCustomFood)) return;
     
-    setMeals((prevMeals) => {
-      const updatedMeals = [...prevMeals];
-      const selectedMeal = { ...updatedMeals[selectedMealIndex] };
-      
-      let foodToAdd: Food;
-      
-      if (isAddingCustomFood) {
-        // Add custom food
-        foodToAdd = {
-          id: `custom-${Date.now()}`,
-          name: customFood.name,
-          calories: customFood.calories,
-          protein: customFood.protein,
-          carbs: customFood.carbs,
-          fats: customFood.fats,
-          portion: foodPortion,
-        };
+    let foodToAdd: Food;
+    
+    if (isAddingCustomFood) {
+      // Determine portion from description if available
+      const portionFromDescription = customFoodDescription 
+        ? parsePortionFromDescription(customFoodDescription) 
+        : foodPortion;
         
-        // Reset custom food form
-        setCustomFood({
-          name: '',
-          calories: 0,
-          protein: 0,
-          carbs: 0,
-          fats: 0,
-        });
-        setIsAddingCustomFood(false);
-      } else {
-        // Add from common foods
-        const food = COMMON_FOODS.find((f) => f.id === selectedFoodId);
-        if (!food) return prevMeals;
-        
-        foodToAdd = {
-          ...food,
-          portion: foodPortion,
-        };
-      }
+      // Add custom food
+      foodToAdd = {
+        id: `custom-${Date.now()}`,
+        name: customFood.name,
+        calories: customFood.calories,
+        protein: customFood.protein,
+        carbs: customFood.carbs,
+        fats: customFood.fats,
+        portion: portionFromDescription,
+        description: customFoodDescription,
+      };
       
-      selectedMeal.foods = [...selectedMeal.foods, foodToAdd];
-      selectedMeal.totalCalories = selectedMeal.foods.reduce(
-        (total, food) => total + food.calories * food.portion,
-        0
-      );
+      // Reset custom food form
+      setCustomFood({
+        name: '',
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fats: 0,
+      });
+      setCustomFoodDescription('');
+      setIsAddingCustomFood(false);
+    } else {
+      // Add from common foods
+      const food = COMMON_FOODS.find((f) => f.id === selectedFoodId);
+      if (!food) return;
       
-      updatedMeals[selectedMealIndex] = selectedMeal;
-      return updatedMeals;
-    });
+      foodToAdd = {
+        ...food,
+        portion: foodPortion,
+        description: customFoodDescription,
+      };
+    }
+    
+    // Add food to the selected meal using context
+    addFoodToMeal(selectedMealId, foodToAdd);
     
     // Reset selection
     setSelectedFoodId('');
     setFoodPortion(1);
+    setCustomFoodDescription('');
   };
 
-  const handleRemoveFood = (mealIndex: number, foodIndex: number) => {
-    setMeals((prevMeals) => {
-      const updatedMeals = [...prevMeals];
-      const selectedMeal = { ...updatedMeals[mealIndex] };
-      
-      selectedMeal.foods = selectedMeal.foods.filter((_, index) => index !== foodIndex);
-      selectedMeal.totalCalories = selectedMeal.foods.reduce(
-        (total, food) => total + food.calories * food.portion,
-        0
-      );
-      
-      updatedMeals[mealIndex] = selectedMeal;
-      return updatedMeals;
-    });
-  };
-
-  const getDailyTotals = () => {
-    return meals.reduce(
-      (totals, meal) => ({
-        calories: totals.calories + meal.totalCalories,
-        protein: totals.protein + meal.foods.reduce((total, food) => total + (food.protein || 0) * food.portion, 0),
-        carbs: totals.carbs + meal.foods.reduce((total, food) => total + (food.carbs || 0) * food.portion, 0),
-        fats: totals.fats + meal.foods.reduce((total, food) => total + (food.fats || 0) * food.portion, 0),
-      }),
-      { calories: 0, protein: 0, carbs: 0, fats: 0 }
-    );
-  };
-
-  const dailyTotals = getDailyTotals();
+  // Get the daily totals from all meals
+  const dailyTotals = todaysMeals.reduce(
+    (totals, meal) => {
+      const mealTotals = calculateMealTotals(meal.foods);
+      return {
+        calories: totals.calories + mealTotals.calories,
+        protein: totals.protein + mealTotals.protein,
+        carbs: totals.carbs + mealTotals.carbs,
+        fats: totals.fats + mealTotals.fats,
+      };
+    },
+    { calories: 0, protein: 0, carbs: 0, fats: 0 }
+  );
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2">
-        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Today's Meals</h2>
+        {/* Meal Gallery Banner */}
+        <div className="mb-4 overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/90 to-emerald-500/90 p-3">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-lg font-semibold mb-1 text-white">Today's Meals</h2>
+              <p className="text-xs text-white/80 mb-3">Track your daily nutrition and maintain a healthy diet</p>
+            </div>
+            <button
+              onClick={() => setShowPortionTips(!showPortionTips)}
+              className="text-white/90 hover:text-white p-1 rounded-full"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          </div>
+          
+          {showPortionTips && (
+            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 mb-3">
+              <h3 className="text-xs font-medium text-white mb-1">Portion Size Tips:</h3>
+              <ul className="text-xs text-white/90 list-disc pl-4 space-y-0.5">
+                <li>Use your palm to estimate a 3-4oz serving of meat (100g)</li>
+                <li>Your closed fist is roughly 1 cup of food</li>
+                <li>Your thumb is about 1 tablespoon</li>
+                <li>Specify measurements like "2 cups" or "200g" when possible</li>
+              </ul>
+            </div>
+          )}
+          
+          <div className="flex overflow-x-auto pb-1 gap-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+            {Object.entries(FOOD_ICONS).slice(0, 6).map(([key, icon]) => (
+              <div key={key} className="flex-shrink-0 bg-white/10 p-2 rounded-lg backdrop-blur-sm flex flex-col items-center min-w-[70px]">
+                <div className="text-xl mb-0.5">{icon}</div>
+                <div className="text-xs font-medium text-white/80 capitalize">{key}</div>
+              </div>
+            ))}
+          </div>
+        </div>
         
-        {meals.map((meal, index) => {
+        {todaysMeals.map((meal) => {
           const mealTotals = calculateMealTotals(meal.foods);
           
           return (
-            <Card key={meal.id} className="mb-4">
-              <CardHeader className="pb-2">
-                <CardTitle className="capitalize">{meal.type}</CardTitle>
+            <Card key={meal.id} className="mb-3">
+              <CardHeader className="pb-1 pt-3">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl mr-2">
+                    {MEAL_TYPE_IMAGES[meal.type as keyof typeof MEAL_TYPE_IMAGES]}
+                  </div>
+                  <CardTitle className="capitalize text-lg">{meal.type}</CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-1">
                 {meal.foods.length === 0 ? (
-                  <p className="text-gray-500 dark:text-gray-400 text-sm italic">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs italic">
                     No foods added yet
                   </p>
                 ) : (
-                  <div className="mb-4">
-                    <div className="grid grid-cols-12 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <div className="mb-2">
+                    <div className="grid grid-cols-12 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       <div className="col-span-6">Food</div>
                       <div className="col-span-2 text-right">Portion</div>
                       <div className="col-span-3 text-right">Calories</div>
                       <div className="col-span-1"></div>
                     </div>
                     {meal.foods.map((food, foodIndex) => (
-                      <div key={`${food.id}-${foodIndex}`} className="grid grid-cols-12 text-sm py-1 border-b border-gray-100 dark:border-gray-800">
-                        <div className="col-span-6">{food.name}</div>
+                      <div key={`${food.id}-${foodIndex}`} className="grid grid-cols-12 text-xs py-1 border-b border-gray-100 dark:border-gray-800">
+                        <div className="col-span-6 flex items-center">
+                          {food.image && (
+                            <div className="mr-1 flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 text-base">
+                              {FOOD_ICONS[food.image as keyof typeof FOOD_ICONS] || FOOD_ICONS.default}
+                            </div>
+                          )}
+                          <div>
+                            <span>{food.name}</span>
+                            {food.description && (
+                              <p className="text-xs text-gray-500">{food.description}</p>
+                            )}
+                          </div>
+                        </div>
                         <div className="col-span-2 text-right">{food.portion}</div>
                         <div className="col-span-3 text-right">{Math.round(food.calories * food.portion)}</div>
                         <div className="col-span-1 text-right">
                           <button
-                            onClick={() => handleRemoveFood(index, foodIndex)}
+                            onClick={() => removeFoodFromMeal(meal.id, foodIndex)}
                             className="text-red-500 hover:text-red-700"
                           >
-                            <XMarkIcon className="h-4 w-4" />
+                            <XMarkIcon className="h-3 w-3" />
                           </button>
                         </div>
                       </div>
                     ))}
-                    <div className="grid grid-cols-12 text-sm font-medium mt-2 text-gray-800 dark:text-gray-200">
+                    <div className="grid grid-cols-12 text-xs font-medium mt-1 text-gray-800 dark:text-gray-200">
                       <div className="col-span-6">Total</div>
                       <div className="col-span-2"></div>
                       <div className="col-span-3 text-right">{Math.round(mealTotals.calories)} cal</div>
@@ -230,11 +209,12 @@ export default function MealTracker() {
                   </div>
                 )}
                 <Button
-                  onClick={() => setSelectedMealIndex(index)}
+                  onClick={() => setSelectedMealId(meal.id)}
                   variant="outline"
                   size="sm"
+                  className="h-7 text-xs"
                 >
-                  <PlusIcon className="h-4 w-4 mr-1" /> Add Food
+                  <PlusIcon className="h-3 w-3 mr-1" /> Add Food
                 </Button>
               </CardContent>
             </Card>
@@ -242,33 +222,69 @@ export default function MealTracker() {
         })}
         
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Daily Totals</CardTitle>
+          <CardHeader className="pb-1 pt-3">
+            <CardTitle className="text-lg">Daily Totals</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                <div className="text-sm text-blue-700 dark:text-blue-400">Calories</div>
-                <div className="text-xl font-bold text-blue-800 dark:text-blue-300">
+          <CardContent className="pt-1">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg">
+                <div className="flex items-center">
+                  <div className="text-blue-500 mr-1.5 text-lg">🔥</div>
+                  <div className="text-xs text-blue-700 dark:text-blue-400">Calories</div>
+                </div>
+                <div className="text-lg font-bold text-blue-800 dark:text-blue-300">
                   {Math.round(dailyTotals.calories)}
                 </div>
+                <div className="w-full bg-blue-100 dark:bg-blue-800/30 h-1 mt-1 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-blue-500 h-full" 
+                    style={{ width: `${Math.min(100, (dailyTotals.calories / 2500) * 100)}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
-                <div className="text-sm text-red-700 dark:text-red-400">Protein</div>
-                <div className="text-xl font-bold text-red-800 dark:text-red-300">
+              <div className="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg">
+                <div className="flex items-center">
+                  <div className="text-red-500 mr-1.5 text-lg">{FOOD_ICONS.protein}</div>
+                  <div className="text-xs text-red-700 dark:text-red-400">Protein</div>
+                </div>
+                <div className="text-lg font-bold text-red-800 dark:text-red-300">
                   {Math.round(dailyTotals.protein)}g
                 </div>
-              </div>
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
-                <div className="text-sm text-yellow-700 dark:text-yellow-400">Carbs</div>
-                <div className="text-xl font-bold text-yellow-800 dark:text-yellow-300">
-                  {Math.round(dailyTotals.carbs)}g
+                <div className="w-full bg-red-100 dark:bg-red-800/30 h-1 mt-1 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-red-500 h-full" 
+                    style={{ width: `${Math.min(100, (dailyTotals.protein / 120) * 100)}%` }}
+                  ></div>
                 </div>
               </div>
-              <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-                <div className="text-sm text-green-700 dark:text-green-400">Fats</div>
-                <div className="text-xl font-bold text-green-800 dark:text-green-300">
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded-lg">
+                <div className="flex items-center">
+                  <div className="text-yellow-500 mr-1.5 text-lg">{FOOD_ICONS.carbs}</div>
+                  <div className="text-xs text-yellow-700 dark:text-yellow-400">Carbs</div>
+                </div>
+                <div className="text-lg font-bold text-yellow-800 dark:text-yellow-300">
+                  {Math.round(dailyTotals.carbs)}g
+                </div>
+                <div className="w-full bg-yellow-100 dark:bg-yellow-800/30 h-1 mt-1 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-yellow-500 h-full" 
+                    style={{ width: `${Math.min(100, (dailyTotals.carbs / 300) * 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded-lg">
+                <div className="flex items-center">
+                  <div className="text-green-500 mr-1.5 text-lg">{FOOD_ICONS.fats}</div>
+                  <div className="text-xs text-green-700 dark:text-green-400">Fats</div>
+                </div>
+                <div className="text-lg font-bold text-green-800 dark:text-green-300">
                   {Math.round(dailyTotals.fats)}g
+                </div>
+                <div className="w-full bg-green-100 dark:bg-green-800/30 h-1 mt-1 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-green-500 h-full" 
+                    style={{ width: `${Math.min(100, (dailyTotals.fats / 70) * 100)}%` }}
+                  ></div>
                 </div>
               </div>
             </div>
@@ -277,24 +293,24 @@ export default function MealTracker() {
       </div>
       
       <div>
-        {selectedMealIndex !== null && (
+        {selectedMealId !== null && (
           <Card>
-            <CardHeader>
-              <CardTitle>Add Food to {meals[selectedMealIndex].type}</CardTitle>
+            <CardHeader className="pb-2 pt-3">
+              <CardTitle className="text-lg">Add Food to {todaysMeals.find(m => m.id === selectedMealId)?.type}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="pt-1">
+              <div className="space-y-3">
                 {!isAddingCustomFood ? (
                   <>
                     <div>
-                      <label htmlFor="food" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor="food" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Select Food
                       </label>
                       <select
                         id="food"
                         value={selectedFoodId}
                         onChange={(e) => setSelectedFoodId(e.target.value)}
-                        className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                       >
                         <option value="">Select a food...</option>
                         {COMMON_FOODS.map((food) => (
@@ -306,7 +322,7 @@ export default function MealTracker() {
                     </div>
                     
                     <div>
-                      <label htmlFor="portion" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor="portion" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Portion
                       </label>
                       <input
@@ -316,133 +332,160 @@ export default function MealTracker() {
                         step="0.25"
                         value={foodPortion}
                         onChange={(e) => setFoodPortion(Number(e.target.value))}
-                        className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                       />
                     </div>
                     
-                    <div className="flex space-x-2">
-                      <Button onClick={handleAddFood} disabled={!selectedFoodId}>
-                        Add Food
-                      </Button>
+                    <div className="flex justify-between">
                       <Button
+                        onClick={() => {
+                          setIsAddingCustomFood(true);
+                          setSelectedFoodId("");
+                        }}
                         variant="outline"
-                        onClick={() => setIsAddingCustomFood(true)}
+                        size="sm"
+                        className="text-xs h-7"
                       >
-                        Add Custom Food
+                        + Custom Food
                       </Button>
+                      
+                      <div className="space-x-2">
+                        <Button
+                          onClick={() => setSelectedMealId(null)}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          disabled={!selectedFoodId}
+                          onClick={handleAddFood}
+                          size="sm"
+                          className="text-xs h-7"
+                        >
+                          Add Food
+                        </Button>
+                      </div>
                     </div>
                   </>
                 ) : (
                   <>
                     <div>
-                      <label htmlFor="custom-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor="customFoodName" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Food Name
                       </label>
                       <input
-                        id="custom-name"
+                        id="customFoodName"
                         type="text"
                         value={customFood.name}
                         onChange={(e) => setCustomFood({ ...customFood, name: e.target.value })}
-                        className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                        placeholder="E.g., Chicken Sandwich"
+                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        placeholder="e.g. Grilled Chicken Breast"
                       />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label htmlFor="custom-calories" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Calories
+                        <label htmlFor="customFoodCalories" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Calories (per portion)
                         </label>
                         <input
-                          id="custom-calories"
+                          id="customFoodCalories"
                           type="number"
                           value={customFood.calories}
-                          onChange={(e) => setCustomFood({ ...customFood, calories: Number(e.target.value) })}
-                          className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          onChange={(e) => setCustomFood({ ...customFood, calories: parseInt(e.target.value) || 0 })}
+                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                         />
                       </div>
-                      
                       <div>
-                        <label htmlFor="custom-portion" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label htmlFor="customFoodPortion" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Portion
                         </label>
                         <input
-                          id="custom-portion"
+                          id="customFoodPortion"
                           type="number"
                           min="0.25"
                           step="0.25"
                           value={foodPortion}
                           onChange={(e) => setFoodPortion(Number(e.target.value))}
-                          className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                         />
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label htmlFor="custom-protein" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label htmlFor="customFoodProtein" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Protein (g)
                         </label>
                         <input
-                          id="custom-protein"
+                          id="customFoodProtein"
                           type="number"
-                          value={customFood.protein}
-                          onChange={(e) => setCustomFood({ ...customFood, protein: Number(e.target.value) })}
-                          className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          value={customFood.protein || 0}
+                          onChange={(e) => setCustomFood({ ...customFood, protein: parseInt(e.target.value) || 0 })}
+                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                         />
                       </div>
-                      
                       <div>
-                        <label htmlFor="custom-carbs" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label htmlFor="customFoodCarbs" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Carbs (g)
                         </label>
                         <input
-                          id="custom-carbs"
+                          id="customFoodCarbs"
                           type="number"
-                          value={customFood.carbs}
-                          onChange={(e) => setCustomFood({ ...customFood, carbs: Number(e.target.value) })}
-                          className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          value={customFood.carbs || 0}
+                          onChange={(e) => setCustomFood({ ...customFood, carbs: parseInt(e.target.value) || 0 })}
+                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                         />
                       </div>
-                      
                       <div>
-                        <label htmlFor="custom-fats" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label htmlFor="customFoodFats" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Fats (g)
                         </label>
                         <input
-                          id="custom-fats"
+                          id="customFoodFats"
                           type="number"
-                          value={customFood.fats}
-                          onChange={(e) => setCustomFood({ ...customFood, fats: Number(e.target.value) })}
-                          className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          value={customFood.fats || 0}
+                          onChange={(e) => setCustomFood({ ...customFood, fats: parseInt(e.target.value) || 0 })}
+                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                         />
                       </div>
                     </div>
                     
-                    <div className="flex space-x-2">
+                    <div className="flex justify-between">
                       <Button
-                        onClick={handleAddFood}
-                        disabled={!customFood.name || customFood.calories <= 0}
-                      >
-                        Add Custom Food
-                      </Button>
-                      <Button
+                        onClick={() => {
+                          setIsAddingCustomFood(false);
+                        }}
                         variant="outline"
-                        onClick={() => setIsAddingCustomFood(false)}
+                        size="sm"
+                        className="text-xs h-7"
                       >
-                        Cancel
+                        Back
                       </Button>
+                      
+                      <div className="space-x-2">
+                        <Button
+                          onClick={() => setSelectedMealId(null)}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          disabled={!customFood.name || customFood.calories <= 0}
+                          onClick={handleAddFood}
+                          size="sm"
+                          className="text-xs h-7"
+                        >
+                          Add Food
+                        </Button>
+                      </div>
                     </div>
                   </>
                 )}
-                
-                <Button
-                  variant="ghost"
-                  onClick={() => setSelectedMealIndex(null)}
-                  className="mt-2"
-                >
-                  Close
-                </Button>
               </div>
             </CardContent>
           </Card>

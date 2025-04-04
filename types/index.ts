@@ -70,6 +70,8 @@ export interface Food {
   carbs?: number; // in grams
   fats?: number; // in grams
   fiber?: number; // in grams
+  image?: string; // path to food image
+  description?: string; // portion size description
 }
 
 export interface HealthMetric {

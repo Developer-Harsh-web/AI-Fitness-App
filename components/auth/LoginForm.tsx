@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Button from '../ui/Button';
 import { useRouter } from 'next/navigation';
 import { useUserContext } from '../../lib/hooks/UserContext';
+import Link from 'next/link';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -18,7 +19,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | React.ReactNode | null>(null);
   const router = useRouter();
   const { signIn, signInWithGoogle } = useUserContext();
 
@@ -29,9 +30,7 @@ export default function LoginForm() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      rememberMe: false,
-      email: 'demo@example.com',
-      password: 'password123'
+      rememberMe: false
     },
   });
 
@@ -40,15 +39,40 @@ export default function LoginForm() {
     setLoginError(null);
     
     try {
-      // Use the context signIn function
-      const success = await signIn(data.email, data.password);
+      // Check if the user exists before attempting to sign in
+      const checkResult = await fetch('/api/auth/check-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email })
+      }).then(res => res.json());
       
-      if (success) {
-        // Redirect to dashboard on successful login
-        router.push('/dashboard');
+      if (checkResult.exists) {
+        // If the user exists, proceed with sign-in
+        const success = await signIn(data.email, data.password);
+        
+        if (success) {
+          // Redirect to dashboard on successful login
+          router.push('/dashboard');
+        } else {
+          // Display error message if login failed - assuming incorrect password
+          setLoginError('Invalid email or password. Please try again.');
+        }
       } else {
-        // Display error message if login failed
-        setLoginError('Login failed. Please try again with any email/password.');
+        // Display error message if user not registered
+        setLoginError(
+          <div className="flex flex-col">
+            <span className="font-medium mb-2">Account not found!</span>
+            <span>It looks like you're not registered yet. Please create an account first.</span>
+            <Button 
+              onClick={() => router.push('/register')}
+              className="mt-3"
+              variant="outline"
+              size="sm"
+            >
+              Register Now
+            </Button>
+          </div>
+        );
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -59,17 +83,42 @@ export default function LoginForm() {
   };
 
   const handleGoogleSignIn = async () => {
+    setIsSubmitting(true);
     setLoginError(null);
+    
     try {
-      const success = await signInWithGoogle();
-      if (success) {
-        router.push('/dashboard');
+      // Before redirecting, check if this is a new Google account that hasn't registered
+      const checkResult = await fetch('/api/auth/check-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'google' })
+      }).then(res => res.json());
+      
+      if (checkResult.exists) {
+        // If the user exists, proceed with Google sign-in
+        await signInWithGoogle();
       } else {
-        setLoginError('Google login failed. Please try again.');
+        // If the user doesn't exist, show registration message
+        setLoginError(
+          <div className="flex flex-col">
+            <span className="font-medium mb-2">Account not found!</span>
+            <span>It looks like you haven't registered with Google yet. Please create an account first.</span>
+            <Button 
+              onClick={() => router.push('/register')}
+              className="mt-3"
+              variant="outline"
+              size="sm"
+            >
+              Register with Google
+            </Button>
+          </div>
+        );
+        setIsSubmitting(false);
       }
     } catch (error) {
       console.error('Google login error:', error);
       setLoginError('An error occurred. Please try again.');
+      setIsSubmitting(false);
     }
   };
 
@@ -80,10 +129,6 @@ export default function LoginForm() {
           {loginError}
         </div>
       )}
-      
-      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 mb-4">
-        For testing, any email and password will work!
-      </div>
       
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -105,9 +150,12 @@ export default function LoginForm() {
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Password
           </label>
-          <a href="/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+          <Link 
+            href="/forgot-password" 
+            className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+          >
             Forgot password?
-          </a>
+          </Link>
         </div>
         <input
           id="password"
@@ -120,16 +168,18 @@ export default function LoginForm() {
         )}
       </div>
 
-      <div className="flex items-center">
-        <input
-          id="rememberMe"
-          type="checkbox"
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          {...register('rememberMe')}
-        />
-        <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-          Remember me
-        </label>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <input
+            id="remember-me"
+            name="remember-me"
+            type="checkbox"
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+            Remember me
+          </label>
+        </div>
       </div>
 
       <Button
@@ -168,9 +218,9 @@ export default function LoginForm() {
 
       <div className="text-center text-sm text-gray-600 dark:text-gray-400">
         Don't have an account?{' '}
-        <a href="/register" className="text-blue-600 dark:text-blue-400 hover:underline">
+        <Link href="/register" className="text-blue-600 dark:text-blue-400 hover:underline">
           Create an account
-        </a>
+        </Link>
       </div>
     </form>
   );
