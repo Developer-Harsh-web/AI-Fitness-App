@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Meal, Food } from '../../types';
 import { useUserContext } from './UserContext';
 
@@ -23,70 +23,62 @@ export const MealTrackingProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { user } = useUserContext();
   const [meals, setMeals] = useState<Meal[]>([]);
   
-  // Load meals from localStorage on component mount
-  useEffect(() => {
-    if (typeof window !== 'undefined' && user?.id) {
-      const storedMeals = localStorage.getItem(`meals-${user.id}`);
-      if (storedMeals) {
-        try {
-          const parsedMeals = JSON.parse(storedMeals);
-          // Convert string dates back to Date objects
-          const mealsWithDates = parsedMeals.map((meal: any) => ({
-            ...meal,
-            date: new Date(meal.date)
-          }));
-          setMeals(mealsWithDates);
-        } catch (error) {
-          console.error('Error parsing stored meals:', error);
-        }
-      } else {
-        // Initialize with empty meals for each meal type if no data exists
-        const initialMeals = [
-          {
-            id: `breakfast-${Date.now()}`,
-            userId: user.id,
-            date: new Date(),
-            type: 'breakfast',
-            foods: [],
-            totalCalories: 0,
-          },
-          {
-            id: `lunch-${Date.now()}`,
-            userId: user.id,
-            date: new Date(),
-            type: 'lunch',
-            foods: [],
-            totalCalories: 0,
-          },
-          {
-            id: `dinner-${Date.now()}`,
-            userId: user.id,
-            date: new Date(),
-            type: 'dinner',
-            foods: [],
-            totalCalories: 0,
-          },
-          {
-            id: `snack-${Date.now()}`,
-            userId: user.id,
-            date: new Date(),
-            type: 'snack',
-            foods: [],
-            totalCalories: 0,
-          },
-        ];
-        setMeals(initialMeals);
-        saveMealsToStorage(initialMeals);
-      }
-    }
-  }, [user?.id]);
-  
   // Save meals to localStorage whenever they change
-  const saveMealsToStorage = (updatedMeals: Meal[]) => {
+  const saveMealsToStorage = useCallback((updatedMeals: Meal[]) => {
     if (typeof window !== 'undefined' && user?.id) {
       localStorage.setItem(`meals-${user.id}`, JSON.stringify(updatedMeals));
     }
-  };
+  }, [user?.id]);
+  
+  useEffect(() => {
+    if (user?.id) {
+      // Check if we have saved meals
+      if (typeof window !== 'undefined') {
+        const savedMeals = localStorage.getItem(`meals-${user.id}`);
+        if (savedMeals) {
+          setMeals(JSON.parse(savedMeals));
+        } else {
+          // Create default meal structure
+          const initialMeals = [
+            {
+              id: `breakfast-${Date.now()}`,
+              userId: user.id,
+              date: new Date(),
+              type: 'breakfast',
+              foods: [],
+              totalCalories: 0,
+            },
+            {
+              id: `lunch-${Date.now()}`,
+              userId: user.id,
+              date: new Date(),
+              type: 'lunch',
+              foods: [],
+              totalCalories: 0,
+            },
+            {
+              id: `dinner-${Date.now()}`,
+              userId: user.id,
+              date: new Date(),
+              type: 'dinner',
+              foods: [],
+              totalCalories: 0,
+            },
+            {
+              id: `snack-${Date.now()}`,
+              userId: user.id,
+              date: new Date(),
+              type: 'snack',
+              foods: [],
+              totalCalories: 0,
+            },
+          ];
+          setMeals(initialMeals);
+          saveMealsToStorage(initialMeals);
+        }
+      }
+    }
+  }, [user?.id, saveMealsToStorage]);
   
   // Add a new meal
   const addMeal = (meal: Meal) => {

@@ -45,9 +45,10 @@ interface ConnectedApp {
 }
 
 export default function AppsPage() {
-  const { /* user, setUser - Removed unused vars */ } = useUserContext();
+  const { user, setUser } = useUserContext();
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [selectedApp, setSelectedApp] = useState<ConnectedApp | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
   const [showQRCode, setShowQRCode] = useState(false);
   
@@ -118,6 +119,12 @@ export default function AppsPage() {
     
     // Simulate syncing
     setTimeout(() => {
+      const updatedApps = connectedApps.map(app => 
+        app.id === appId
+          ? { ...app, lastSynced: new Date(), status: 'connected' as AppStatus }
+          : app
+      );
+      
       // In a real app, you would update the user's connected apps here
       setIsSyncing(null);
     }, 2000);
@@ -299,7 +306,7 @@ export default function AppsPage() {
               <Smartphone className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No apps found</h3>
               <p className="text-gray-500 dark:text-gray-400 max-w-md mb-6">
-                You don&apos;t have any {activeCategory !== 'all' ? APP_CATEGORIES.find(c => c.id === activeCategory)?.name.toLowerCase() : 'apps'} connected yet.
+                You don't have any {activeCategory !== 'all' ? APP_CATEGORIES.find(c => c.id === activeCategory)?.name.toLowerCase() : 'apps'} connected yet.
               </p>
               <Button
                 variant="primary"
@@ -345,7 +352,7 @@ export default function AppsPage() {
           <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Data not syncing?</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Make sure you&apos;ve granted all necessary permissions in the app and that your accounts are linked correctly.
+              Make sure you've granted all necessary permissions in the app and that your accounts are linked correctly.
             </p>
             <Link href="/help/app-sync" className="text-purple-600 dark:text-purple-400 text-sm font-medium inline-flex items-center">
               View sync guide
@@ -398,7 +405,7 @@ export default function AppsPage() {
               className="w-full"
               onClick={finishConnection}
             >
-              I&apos;ve Completed Connection
+              I've Completed Connection
             </Button>
           </div>
         </div>
