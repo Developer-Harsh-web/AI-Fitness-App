@@ -1,6 +1,5 @@
 {
-  "buildCommand": "npm run build -- --no-lint --no-type-check",
-  "ignoreCommand": "npx --no -- eslint ./",
-  "installCommand": "npm install",
+  "framework": "nextjs",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": ".next"
 } 
