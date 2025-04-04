@@ -7,14 +7,7 @@ import Button from '../../../../components/ui/Button';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-// Define the correct type for the page props
-type PageProps = {
-  params: {
-    id: string;
-  };
-};
-
-export default function PlanDetailPage({ params }: PageProps) {
+export default function PlanDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { userPlans } = useAiPersona();
   const [plan, setPlan] = useState<any>(null);
