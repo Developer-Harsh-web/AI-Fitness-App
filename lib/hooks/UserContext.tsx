@@ -362,7 +362,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       await new Promise(resolve => setTimeout(resolve, 800));
       
       // In a real app, update the user's password in the database
-      console.log(`Password updated successfully for token: ${token}`);
+      console.log(`Password updated successfully for token: ${token}, new password length: ${newPassword.length}`);
       
       setIsLoading(false);
       return true;

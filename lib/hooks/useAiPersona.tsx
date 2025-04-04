@@ -250,7 +250,7 @@ export function AiPersonaProvider({ children }: { children: ReactNode }) {
         const dietaryPrefs = user?.preferences?.dietaryPreferences || [];
         const weight = user?.stats?.weight || 70;
         const height = user?.stats?.height || 175;
-        const bodyFat = user?.stats?.bodyFatPercentage || 20;
+        // const bodyFat = user?.stats?.bodyFatPercentage || 20; // Commented out since unused
         
         // Generate a unique ID for the plan
         const planId = `plan-${Date.now()}`;
@@ -318,6 +318,7 @@ export function AiPersonaProvider({ children }: { children: ReactNode }) {
             ? Math.round((10 * weight + 6.25 * height - 5 * 30 + (user?.preferences?.gender === 'female' ? -161 : 5)) * 0.8)
             : Math.round((10 * weight + 6.25 * height - 5 * 30 + (user?.preferences?.gender === 'female' ? -161 : 5)) * 1.2);
           
+          // Protein target calculation - we'll use this in the meal description
           const proteinTarget = userGoals.includes('muscle building') 
             ? Math.round(weight * 2.2) 
             : Math.round(weight * 1.6);
