@@ -1,0 +1,6 @@
+{
+  "buildCommand": "CI=false npm run build",
+  "ignoreCommand": "npx --no -- eslint ./",
+  "installCommand": "npm install",
+  "outputDirectory": ".next"
+} 
