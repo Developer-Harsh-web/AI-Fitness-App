@@ -71,13 +71,13 @@ export function useUser() {
               const parsedUser = JSON.parse(storedUser);
               // Convert string dates back to Date objects
               if (parsedUser.goals) {
-                parsedUser.goals = parsedUser.goals.map((goal: { deadline?: string | null } & Record<string, unknown>) => ({
+                parsedUser.goals = parsedUser.goals.map((goal: any) => ({
                   ...goal,
                   deadline: goal.deadline ? new Date(goal.deadline) : null
                 }));
               }
               setUser(parsedUser);
-            } catch (_) {
+            } catch (e) {
               // If there's an error parsing, use the mock user
               setUser(mockUser);
               localStorage.setItem('fitcoach_user', JSON.stringify(mockUser));
@@ -93,7 +93,7 @@ export function useUser() {
         }
         
         setLoading(false);
-      } catch (_) {
+      } catch (err) {
         setError('Failed to load user data');
         setLoading(false);
       }
@@ -121,7 +121,7 @@ export function useUser() {
       }
       
       return true;
-    } catch (_) {
+    } catch (err) {
       setError('Failed to update user data');
       return false;
     }
@@ -134,7 +134,7 @@ export function useUser() {
     return updateUser({ preferences: updatedPreferences });
   }, [user, updateUser]);
 
-  const login = useCallback(async (email: string, _password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -168,7 +168,7 @@ export function useUser() {
       }
       
       return false;
-    } catch (_) {
+    } catch (err) {
       setError('Login failed');
       return false;
     }
