@@ -89,4 +89,87 @@ export interface MotivationalMessage {
   content: string;
   type: 'achievement' | 'milestone' | 'daily' | 'reminder';
   relatedGoal?: string;
+}
+
+// Device integration interfaces
+export interface ConnectedDevice {
+  id: string;
+  userId: string;
+  type: 'oura' | 'whoop' | 'fitbit' | 'garmin' | 'apple_health' | 'google_fit' | 'samsung_health';
+  name: string;
+  connected: boolean;
+  lastSynced?: Date;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiry?: Date;
+  settings?: Record<string, any>;
+}
+
+export interface DeviceData {
+  id: string;
+  userId: string;
+  deviceId: string;
+  date: Date;
+  type: 'sleep' | 'activity' | 'readiness' | 'heart_rate' | 'hrv' | 'steps' | 'calories' | 'workout';
+  data: Record<string, any>;
+  source: string;
+}
+
+// Enhanced nutrition interfaces
+export interface ExtendedFood extends Food {
+  brand?: string;
+  servingSize?: string;
+  servingSizeUnit?: string;
+  vitamins?: Record<string, number>;
+  minerals?: Record<string, number>;
+  glycemicIndex?: number;
+  allergens?: string[];
+  organic?: boolean;
+  verified?: boolean;
+}
+
+// Community features
+export interface CommunityGroup {
+  id: string;
+  name: string;
+  description?: string;
+  createdBy: string;
+  createdAt: Date;
+  membersCount: number;
+  isPrivate: boolean;
+  image?: string;
+  tags?: string[];
+}
+
+export interface GroupMember {
+  groupId: string;
+  userId: string;
+  role: 'admin' | 'moderator' | 'member';
+  joinedAt: Date;
+  status: 'active' | 'inactive' | 'banned';
+}
+
+export interface Post {
+  id: string;
+  userId: string;
+  groupId?: string;
+  content: string;
+  mediaUrls?: string[];
+  likes: number;
+  comments: number;
+  createdAt: Date;
+  updatedAt?: Date;
+  type: 'text' | 'workout' | 'achievement' | 'progress' | 'question';
+  workoutId?: string;
+  privacy: 'public' | 'friends' | 'group' | 'private';
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
+  userId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt?: Date;
+  likes: number;
 } 

@@ -21,7 +21,11 @@ import {
   Utensils,
   Link as LinkIcon,
   Smartphone,
-  Heart
+  Heart,
+  ClipboardList,
+  Database,
+  Users,
+  Activity
 } from 'lucide-react';
 
 interface AppShellProps {
@@ -43,20 +47,22 @@ export default function AppShell({ children }: AppShellProps) {
       icon: UserCircle 
     },
     { 
-      name: 'Fitness', 
-      icon: Dumbbell,
+      name: 'Nutrition', 
+      icon: Utensils,
       children: [
-        { name: 'Workouts', href: '/workouts', icon: Dumbbell },
+        { name: 'Meal Tracking', href: '/nutrition', icon: ClipboardList },
         { name: 'Meal Tracker', href: '/meal-tracker', icon: Utensils },
-        { name: 'Nutrition', href: '/nutrition', icon: Apple },
-        { name: 'Progress', href: '/progress', icon: BarChart2 },
-        { name: 'Goals', href: '/goals', icon: Target },
+        { name: 'Meal Planner', href: '/nutrition/meal-planner', icon: Calendar },
+        { name: 'Nutrition Goals', href: '/nutrition/goals', icon: Target },
+        { name: 'Food Database', href: '/nutrition/food-database', icon: Database },
       ] 
     },
     { 
-      name: 'Health Data', 
-      icon: Heart,
+      name: 'Tracking', 
+      icon: Activity,
       children: [
+        { name: 'Activity', href: '/activity', icon: BarChart2 },
+        { name: 'Workouts', href: '/workouts', icon: Dumbbell },
         { name: 'Health Metrics', href: '/health', icon: Heart },
         { name: 'Integrations', href: '/integrations', icon: LinkIcon },
         { name: 'Devices', href: '/devices', icon: Smartphone },
@@ -72,9 +78,10 @@ export default function AppShell({ children }: AppShellProps) {
     },
     { 
       name: 'Community', 
-      icon: MessageSquare,
+      icon: Users,
       children: [
-        { name: 'Forums', href: '/community', icon: MessageSquare },
+        { name: 'Groups', href: '/community', icon: Users },
+        { name: 'Feed', href: '/community/feed', icon: MessageSquare },
       ] 
     },
     { 
